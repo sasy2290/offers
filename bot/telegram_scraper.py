@@ -135,6 +135,13 @@ async def main():
     except Exception as e:
         print(f"❌ Errore imprevisto: {e}")
 
+import sys
+import asyncio
+
+async def shutdown(client):
+    await client.disconnect()
+    sys.exit(0)
 
 if __name__ == "__main__":
     asyncio.run(main())
+    await shutdown(client)

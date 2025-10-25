@@ -110,7 +110,7 @@ import asyncio
 
 async def main():
     try:
-        # Timeout massimo: 120 secondi
+        # Timeout massimo: 60 secondi
         await asyncio.wait_for(run_scraper(), timeout=120)
     except asyncio.TimeoutError:
         print("⏱️ Timeout raggiunto, chiusura forzata.")

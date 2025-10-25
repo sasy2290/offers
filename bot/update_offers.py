@@ -123,7 +123,7 @@ def main():
 
     # 🔽 Messaggio Telegram con bottoni
     url_sito = "https://www.techandmore.eu"
-    url_canale = "https://t.me/amazontechandmore"  # <-- metti qui il link reale del tuo canale
+    url_canale = "https://t.me/techandmore"  # <-- metti qui il link reale del tuo canale
 
     testo = "<b>🔥 Homepage aggiornata con le ultime offerte Amazon!</b>\n\n📢 Controlla le novità anche sul sito o unisciti al canale."
 
@@ -147,6 +147,7 @@ def main():
 
 except Exception as e:
     send_telegram_message(f"❌ Errore aggiornamento homepage: {e}")
+
 
 
 if __name__ == "__main__":

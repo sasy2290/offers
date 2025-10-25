@@ -11,7 +11,6 @@ CHAT_ID = os.getenv("CHAT_ID")
 if not TELEGRAM_TOKEN or not CHAT_ID:
     raise ValueError("Mancano TELEGRAM_TOKEN o CHAT_ID nei Secrets GitHub.")
 
-# Feed RSS di siti che pubblicano offerte Amazon
 FEEDS = [
     "https://www.offerteshock.it/feed/",
     "https://www.kechiusa.it/offerte-amazon/feed/",
@@ -72,27 +71,57 @@ def send_telegram_message(text: str):
 
 
 def generate_html(offers):
-    """Genera il file offerte.html con le ultime offerte Amazon."""
-    html = """<!DOCTYPE html>
+    """Genera offerte.html con contatore visite e ultime offerte."""
+    html = f"""<!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
 <title>Offerte Amazon - TechAndMore</title>
 <style>
-body {font-family: Arial, sans-serif; background:#fafafa; color:#111; margin:40px;}
-a {color:#0073bb; text-decoration:none;}
-.offer {background:white; padding:15px; margin:10px 0; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.1);}
-h2 {color:#222;}
+body {{font-family: Arial, sans-serif; background:#fafafa; color:#111; margin:40px;}}
+a {{color:#0073bb; text-decoration:none;}}
+.offer {{background:white; padding:15px; margin:10px 0; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.1);}}
+h2 {{color:#222;}}
+.counter {{font-size:13px; color:#555; text-align:right; margin-top:20px;}}
 </style>
 </head>
 <body>
-<h2>🔥 Ultime offerte Amazon (aggiornate {time})</h2>
-""".format(time=datetime.now().strftime("%H:%M %d/%m/%Y"))
+<h2>🔥 Ultime offerte Amazon (aggiornate {datetime.now().strftime('%H:%M %d/%m/%Y')})</h2>
+"""
 
     for o in offers:
         html += f"<div class='offer'><a href='{o['link']}' target='_blank'>{o['title']}</a></div>\n"
 
+    # --- Contatore visite locale leggero ---
+    html += """
+<div class="counter">
+<script>
+  if (localStorage.getItem('visitCount')) {
+      localStorage.setItem('visitCount', Number(localStorage.getItem('visitCount')) + 1);
+  } else {
+      localStorage.setItem('visitCount', 1);
+  }
+  document.write("👁️ Visite locali: " + localStorage.getItem('visitCount'));
+</script>
+</div>
+"""
+
+    # --- (Opzionale) Google Analytics ---
+    html += """
+<!-- Google tag (gtag.js) -->
+<!--
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){{dataLayer.push(arguments);}}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX');
+</script>
+-->
+"""
+
     html += "</body></html>"
+
     with open(HTML_FILE, "w", encoding="utf-8") as f:
         f.write(html)
 

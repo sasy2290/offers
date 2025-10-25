@@ -1,33 +1,22 @@
 import os
 import requests
-import feedparser
+from bs4 import BeautifulSoup
 from datetime import datetime
-import time
 import json
 from ftplib import FTP
 
-# === Config ===
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 FTP_HOST = os.getenv("FTP_HOST")
 FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
-FTP_PATH = os.getenv("FTP_PATH")  # esempio: /public_html/index.html o /index.html
-
-if not all([TELEGRAM_TOKEN, CHAT_ID, FTP_HOST, FTP_USER, FTP_PASS, FTP_PATH]):
-    raise ValueError("Mancano uno o più secrets richiesti (TELEGRAM, FTP).")
-
-# === Fonti offerte Amazon ===
-FEEDS = [
-    "https://www.offerteshock.it/feed/",
-    "https://www.kechiusa.it/offerte-amazon/feed/",
-    "https://www.prezzi.tech/feed/",
-    "https://www.prezzipazzi.com/feed/",
-    "https://www.offertepertutti.it/feed/",
-    "https://www.scontodelgiorno.it/feed/"
-]
+FTP_PATH = os.getenv("FTP_PATH")
 
 CACHE_FILE = "bot/last_offers.json"
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36"
+}
 
 
 def load_cache():
@@ -45,38 +34,39 @@ def save_cache(cache):
         json.dump(cache, f, ensure_ascii=False, indent=2)
 
 
-def get_rss_offers(limit=10):
+def scrape_amazon_offers(limit=10):
+    """Estrae offerte reali da Amazon.it/offerte."""
+    url = "https://www.amazon.it/gp/goldbox"
+    r = requests.get(url, headers=HEADERS, timeout=15)
+    soup = BeautifulSoup(r.text, "html.parser")
+
     offers = []
-    for feed_url in FEEDS:
-        try:
-            feed = feedparser.parse(feed_url)
-            for entry in feed.entries:
-                link = entry.link.strip()
-                if "amazon.it" in link.lower():
-                    offers.append({
-                        "title": entry.title.strip(),
-                        "link": link
-                    })
-                if len(offers) >= limit:
-                    break
-        except Exception as e:
-            print(f"Errore feed {feed_url}: {e}")
-        time.sleep(1)
+    for div in soup.select("div.a-section.a-spacing-none.gbh1-row"):
+        title_el = div.select_one("span.a-size-base.a-color-base")
+        link_el = div.select_one("a.a-link-normal")
+        if not title_el or not link_el:
+            continue
+        title = title_el.text.strip()
+        link = "https://www.amazon.it" + link_el.get("href")
+        offers.append({"title": title, "link": link})
         if len(offers) >= limit:
             break
-    return offers[:limit]
+    return offers
 
 
-def send_telegram_message(text: str):
+def send_telegram_message(text, buttons=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML"}
-    r = requests.post(url, data=payload)
-    if r.status_code != 200:
-        print("Errore Telegram:", r.text)
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": text,
+        "parse_mode": "HTML",
+    }
+    if buttons:
+        payload["reply_markup"] = json.dumps({"inline_keyboard": buttons})
+    requests.post(url, data=payload)
 
 
 def fetch_homepage():
-    """Scarica la homepage esistente da Aruba."""
     ftp = FTP(FTP_HOST)
     ftp.login(FTP_USER, FTP_PASS)
     lines = []
@@ -86,7 +76,6 @@ def fetch_homepage():
 
 
 def upload_homepage(content):
-    """Ricarica la homepage modificata su Aruba."""
     ftp = FTP(FTP_HOST)
     ftp.login(FTP_USER, FTP_PASS)
     ftp.storbinary(f"STOR {FTP_PATH}", content.encode("utf-8"))
@@ -94,7 +83,6 @@ def upload_homepage(content):
 
 
 def inject_offers_into_html(original_html, offers):
-    """Sostituisce il blocco tra <!-- OFFERTE_START --> e <!-- OFFERTE_END -->"""
     start_tag = "<!-- OFFERTE_START -->"
     end_tag = "<!-- OFFERTE_END -->"
     start = original_html.find(start_tag)
@@ -105,51 +93,37 @@ def inject_offers_into_html(original_html, offers):
 
     offers_html = f"\n<h2>🔥 Offerte Amazon (aggiornate {datetime.now().strftime('%H:%M %d/%m/%Y')})</h2>\n"
     for o in offers:
-        offers_html += f"<div><a href='{o['link']}' target='_blank'>{o['title']}</a></div>\n"
+        offers_html += f"<div class='offer'><a href='{o['link']}' target='_blank'>{o['title']}</a></div>\n"
 
     return original_html[:start + len(start_tag)] + offers_html + original_html[end:]
 
 
 def main():
-    offers = get_rss_offers(limit=10)
+    offers = scrape_amazon_offers(limit=10)
     if not offers:
-        send_telegram_message("⚠️ Nessuna offerta trovata nei feed RSS.")
+        send_telegram_message("⚠️ Nessuna offerta trovata su Amazon.")
         return
+
+    cache = load_cache()
+    new_offers = [o for o in offers if o["link"] not in cache]
+    cache.extend([o["link"] for o in new_offers])
+    cache = cache[-100:]
+    save_cache(cache)
 
     try:
         html = fetch_homepage()
-        updated_html = inject_offers_into_html(html, new_offers)
+        updated_html = inject_offers_into_html(html, offers)
         upload_homepage(updated_html)
 
-        # 🔽 Messaggio Telegram con due bottoni
-        url_sito = "https://www.techandmore.eu"
-        url_canale = "https://t.me/techandmore"  # <-- metti qui il link reale del tuo canale
-
-        testo = "<b>🔥 Homepage aggiornata con le ultime offerte Amazon!</b>\n\n📢 Controlla le novità anche sul sito o unisciti al canale."
-
-        payload = {
-            "chat_id": CHAT_ID,
-            "text": testo,
-            "parse_mode": "HTML",
-            "reply_markup": json.dumps({
-                "inline_keyboard": [
-                    [
-                        {"text": "🌐 Vai al sito TechAndMore.eu", "url": url_sito}
-                    ],
-                    [
-                        {"text": "🔔 Iscriviti al canale Telegram", "url": url_canale}
-                    ]
-                ]
-            })
-        }
-
-        requests.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage", data=payload)
+        buttons = [
+            [{"text": "🌐 Vai al sito TechAndMore.eu", "url": "https://www.techandmore.eu"}],
+            [{"text": "🔔 Iscriviti al canale Telegram", "url": "https://t.me/techandmore"}],
+        ]
+        msg = "<b>🔥 Homepage aggiornata con offerte reali Amazon!</b>"
+        send_telegram_message(msg, buttons)
 
     except Exception as e:
         send_telegram_message(f"❌ Errore aggiornamento homepage: {e}")
-
-
-
 
 
 if __name__ == "__main__":

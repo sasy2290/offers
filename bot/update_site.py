@@ -6,7 +6,7 @@ from datetime import datetime
 FTP_HOST = os.getenv("FTP_HOST")
 FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
-FTP_PATH = "/www.techandmore.eu/"
+FTP_PATH = "/"
 LOCAL_INDEX = "index.html"
 
 def aggiorna_data_html(file_path):

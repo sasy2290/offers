@@ -12,8 +12,6 @@ AFFILIATE_TAG = os.getenv("AFFILIATE_TAG")
 
 # Canali sorgente da cui copiare offerte (aggiungi i @usernames)
 SOURCE_CHANNELS = [
-    "offertepertutti",  # esempio
-    "scontiesubito",    # aggiungi altri
     "SoloOfferteECodiciSconto",
     "offertebenesseretop",
     "offerte24hgruppo",

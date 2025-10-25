@@ -113,21 +113,25 @@ async def run_scraper():
     return new_posts
 
 
+import sys
+import asyncio
+
 async def main():
     try:
-        # Timeout massimo di 2 minuti
+        # Timeout massimo di 1 minuto
         new_posts = await asyncio.wait_for(run_scraper(), timeout=120)
         print(f"📊 Totale offerte nuove trovate: {new_posts}")
     except asyncio.TimeoutError:
         print("⏱️ Timeout raggiunto, chiusura forzata.")
     except (AuthKeyDuplicatedError, SessionRevokedError):
-        print("⚠️ Sessione Telethon invalidata. Rigenerazione necessaria.")
+        print("⚠️ Sessione Telethon invalidata o scaduta.")
+        print("🔁 Rigenera la TELETHON_SESSION localmente con lo script generate_session.py")
     except Exception as e:
         print(f"❌ Errore imprevisto: {e}")
     finally:
         print("🔚 Script completato.")
-        return
-
+        sys.exit(0)
 
 if __name__ == "__main__":
     asyncio.run(main())
+

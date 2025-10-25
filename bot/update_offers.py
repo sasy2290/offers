@@ -10,7 +10,7 @@ CHAT_ID = os.getenv("CHAT_ID")
 if not TELEGRAM_TOKEN or not CHAT_ID:
     raise ValueError("Mancano TELEGRAM_TOKEN o CHAT_ID nei Secrets GitHub.")
 
-# Feed RSS di offerte Amazon da siti affiliati
+# Feed RSS di siti che pubblicano offerte Amazon
 FEEDS = [
     "https://www.offerteshock.it/feed/",
     "https://www.kechiusa.it/offerte-amazon/feed/",
@@ -18,19 +18,25 @@ FEEDS = [
 ]
 
 def get_rss_offers(limit=5):
-    """Legge i feed RSS e restituisce le ultime offerte trovate."""
+    """Legge i feed RSS e filtra solo link Amazon."""
     offers = []
     for feed_url in FEEDS:
         try:
             feed = feedparser.parse(feed_url)
-            for entry in feed.entries[:limit]:
-                offers.append({
-                    "title": entry.title,
-                    "link": entry.link
-                })
+            for entry in feed.entries:
+                link = entry.link.strip()
+                if "amazon.it" in link:
+                    offers.append({
+                        "title": entry.title.strip(),
+                        "link": link
+                    })
+                if len(offers) >= limit:
+                    break
         except Exception as e:
             print(f"Errore lettura feed {feed_url}: {e}")
         time.sleep(1)
+        if len(offers) >= limit:
+            break
     return offers[:limit]
 
 
@@ -47,10 +53,10 @@ def main():
     try:
         offers = get_rss_offers(limit=5)
         if not offers:
-            send_telegram_message("⚠️ Nessuna offerta trovata nei feed RSS.")
+            send_telegram_message("⚠️ Nessuna offerta Amazon trovata nei feed RSS.")
             return
 
-        msg = f"<b>🔥 Ultime offerte Amazon dai feed</b>\nAggiornato: {datetime.now().strftime('%H:%M %d/%m/%Y')}\n\n"
+        msg = f"<b>🔥 Ultime offerte Amazon</b>\nAggiornato: {datetime.now().strftime('%H:%M %d/%m/%Y')}\n\n"
         for o in offers:
             msg += f"🛒 <a href='{o['link']}'>{o['title']}</a>\n\n"
 

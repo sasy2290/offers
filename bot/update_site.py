@@ -1,8 +1,8 @@
 import os
 import ftplib
 from datetime import datetime
-import random
 import time
+import random
 import re
 
 # === CONFIG ===
@@ -13,7 +13,7 @@ FTP_PATH = "/www.techandmore.eu/"
 LOCAL_INDEX = "index.html"
 
 def aggiorna_data_html(file_path):
-    """Aggiorna la data visibile e aggiunge tag univoco"""
+    """Aggiorna data visibile + cache buster"""
     if not os.path.exists(file_path):
         print(f"❌ File non trovato: {file_path}")
         return False
@@ -22,15 +22,19 @@ def aggiorna_data_html(file_path):
         html = f.read()
 
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
-    unique_tag = str(int(time.time()))
+    uniq = str(int(time.time()))
 
     if "Aggiornato automaticamente" in html:
-        html = re.sub(r"Aggiornato automaticamente[^<]*",
-                      f"Aggiornato automaticamente {now} <!-- {unique_tag} -->",
-                      html)
+        html = re.sub(
+            r"Aggiornato automaticamente[^<]*",
+            f"Aggiornato automaticamente {now} <!-- {uniq} -->",
+            html
+        )
     else:
-        html = html.replace("</body>",
-                            f"\n<p style='text-align:center;color:#aaa;font-size:12px;'>Aggiornato automaticamente {now} <!-- {unique_tag} --></p>\n</body>")
+        html = html.replace(
+            "</body>",
+            f"\n<p style='text-align:center;color:#aaa;font-size:12px;'>Aggiornato automaticamente {now} <!-- {uniq} --></p>\n</body>"
+        )
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -40,32 +44,39 @@ def aggiorna_data_html(file_path):
 
 
 def upload_ftp(local_file):
-    """Forza aggiornamento su Aruba"""
-    temp_name = f"index_{int(time.time())}.html"
+    """Upload con doppia rinomina per forzare cache Aruba"""
     try:
         ftps = ftplib.FTP_TLS(FTP_HOST)
         ftps.login(FTP_USER, FTP_PASS)
         ftps.prot_p()
         ftps.cwd(FTP_PATH)
-        print(f"✅ Connessione FTPS → {FTP_PATH}")
+        print(f"✅ Connesso a {FTP_HOST}{FTP_PATH}")
 
-        # carica file temporaneo
+        temp_a = f"index_a_{int(time.time())}.html"
+        temp_b = f"index_b_{int(time.time())}.html"
+
+        # 1️⃣ Carica file temporaneo A
         with open(local_file, "rb") as f:
-            ftps.storbinary(f"STOR {temp_name}", f)
-        print(f"📤 Caricato temporaneo: {temp_name}")
+            ftps.storbinary(f"STOR {temp_a}", f)
+        print(f"📤 Caricato {temp_a}")
 
-        # elimina vecchio index.html
+        # 2️⃣ Rinomina A→B per creare nuova entry cache
+        ftps.rename(temp_a, temp_b)
+        print(f"🔁 Rinomina {temp_a} → {temp_b}")
+
+        # 3️⃣ Cancella vecchio index.html se esiste
         try:
             ftps.delete("index.html")
         except Exception:
             pass
 
-        # rinomina il file temporaneo in index.html
-        ftps.rename(temp_name, "index.html")
-        print("🔁 Rinomina forzata completata → index.html")
+        # 4️⃣ Rinomina B→index.html (forza refresh CDN)
+        ftps.rename(temp_b, "index.html")
+        print("✅ Pubblicato definitivamente index.html")
 
         ftps.quit()
-        print("✅ Pubblicazione forzata completata su Aruba.")
+        print("🏁 Upload e refresh cache completati.")
+
     except Exception as e:
         print(f"❌ Errore FTP: {e}")
 
@@ -74,4 +85,4 @@ if __name__ == "__main__":
     if aggiorna_data_html(LOCAL_INDEX):
         upload_ftp(LOCAL_INDEX)
     else:
-        print("⚠️ Nessuna modifica.")
+        print("⚠️ Nessuna modifica effettuata.")

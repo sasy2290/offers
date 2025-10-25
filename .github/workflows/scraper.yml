@@ -1,0 +1,30 @@
+name: Telegram Scraper
+
+on:
+  schedule:
+    - cron: "*/3 * * * *"  # ogni 3 minuti
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install telethon
+
+      - name: Run Telegram Scraper
+        env:
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
+          TELETHON_SESSION: ${{ secrets.TELETHON_SESSION }}
+          AFFILIATE_TAG: ${{ secrets.AFFILIATE_TAG }}
+        run: python bot/telegram_scraper.py

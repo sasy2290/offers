@@ -11,7 +11,6 @@ CHAT_ID = os.getenv("CHAT_ID")
 if not TELEGRAM_TOKEN or not CHAT_ID:
     raise ValueError("Mancano TELEGRAM_TOKEN o CHAT_ID nei Secrets GitHub.")
 
-# === Lista ampliata di feed con offerte Amazon ===
 FEEDS = [
     "https://www.offerteshock.it/feed/",
     "https://www.kechiusa.it/offerte-amazon/feed/",
@@ -21,12 +20,11 @@ FEEDS = [
     "https://www.scontodelgiorno.it/feed/"
 ]
 
-# === File per la cache dei link già inviati ===
 CACHE_FILE = "bot/last_offers.json"
+HTML_FILE = "bot/offers.html"
 
 
 def load_cache():
-    """Carica la lista delle offerte già pubblicate."""
     if not os.path.exists(CACHE_FILE):
         return []
     try:
@@ -37,13 +35,11 @@ def load_cache():
 
 
 def save_cache(cache):
-    """Salva la lista aggiornata delle offerte pubblicate."""
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(cache, f, ensure_ascii=False, indent=2)
 
 
 def get_rss_offers(limit=10):
-    """Legge i feed RSS, filtra solo link Amazon e restituisce nuove offerte."""
     offers = []
     for feed_url in FEEDS:
         try:
@@ -66,17 +62,36 @@ def get_rss_offers(limit=10):
 
 
 def send_telegram_message(text: str):
-    """Invia un messaggio Telegram."""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": text,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": False
-    }
+    payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML", "disable_web_page_preview": False}
     r = requests.post(url, data=payload)
     if r.status_code != 200:
         raise RuntimeError(f"Errore Telegram: {r.text}")
+
+
+def generate_html(offers):
+    html = """<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Offerte Amazon - TechAndMore</title>
+<style>
+body {font-family: Arial, sans-serif; background:#fafafa; color:#111; margin:40px;}
+a {color:#0073bb; text-decoration:none;}
+.offer {background:white; padding:15px; margin:10px 0; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.1);}
+h2 {color:#222;}
+</style>
+</head>
+<body>
+<h2>🔥 Ultime offerte Amazon (aggiornate {time})</h2>
+""".format(time=datetime.now().strftime("%H:%M %d/%m/%Y"))
+
+    for o in offers:
+        html += f"<div class='offer'><a href='{o['link']}' target='_blank'>{o['title']}</a></div>\n"
+
+    html += "</body></html>"
+    with open(HTML_FILE, "w", encoding="utf-8") as f:
+        f.write(html)
 
 
 def main():
@@ -89,12 +104,11 @@ def main():
             new_offers.append(o)
             cache.append(o["link"])
 
-    # Mantieni la cache con massimo 100 link
     cache = cache[-100:]
     save_cache(cache)
 
     if not new_offers:
-        send_telegram_message("⏳ Nessuna nuova offerta Amazon trovata nei feed RSS.")
+        send_telegram_message("⏳ Nessuna nuova offerta Amazon trovata.")
         return
 
     msg = f"<b>🔥 Nuove offerte Amazon</b>\nAggiornato: {datetime.now().strftime('%H:%M %d/%m/%Y')}\n\n"
@@ -102,6 +116,7 @@ def main():
         msg += f"🛒 <a href='{o['link']}'>{o['title']}</a>\n\n"
 
     send_telegram_message(msg)
+    generate_html(new_offers)
 
 
 if __name__ == "__main__":

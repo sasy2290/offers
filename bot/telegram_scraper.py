@@ -15,16 +15,17 @@ SOURCE_CHANNELS = [
     "offertepertutti",  # esempio
     "scontiesubito",    # aggiungi altri
     "offertepiu", 
-    @SoloOfferteECodiciSconto,
-    @offertebenesseretop,
-    @offerte24hgruppo,
-    @DottSconto,
-    @offertepaz,
-    @ilmondodelrisparmio,
-    @LeoffertedelGiorno,
-    @mondodiofferte,
-    @giga_offertee,
-    @codici_sconto_sconti,
+    "SoloOfferteECodiciSconto",
+    "offertebenesseretop",
+    "offerte24hgruppo",
+    "DottSconto",
+    "offertepaz",
+    "ilmondodelrisparmio",
+    "LeoffertedelGiorno",
+    "mondodiofferte",
+    "giga_offertee",
+    "codici_sconto_sconti",
+    "-1001521567437"
 ]
 
 # Canale tuo dove pubblicare

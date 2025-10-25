@@ -42,25 +42,31 @@ def aggiorna_data_html(file_path):
     print(f"🕒 Data aggiornata a {now}")
     return True
 
-
 def upload_ftp(local_file, remote_file):
-    """Test connessione FTPS su Aruba"""
-    from ftplib import FTP_TLS, all_errors
+    """Carica il file via FTP, con fallback automatico"""
+    with ftplib.FTP_TLS(FTP_HOST) as ftp:  # usa FTPS se Aruba lo richiede
+        ftp.login(FTP_USER, FTP_PASS)
 
-    try:
-        print(f"Connessione a {FTP_HOST}...")
-        with FTP_TLS() as ftps:
-            ftps.connect(FTP_HOST, 21, timeout=15)
-            ftps.auth()
-            ftps.prot_p()
-            ftps.login(FTP_USER, FTP_PASS)
-            ftps.cwd(FTP_PATH)
-            print(f"✅ Connessione riuscita. Directory attuale: {ftps.pwd()}")
+        try:
+            ftp.cwd(FTP_PATH)
+        except ftplib.error_perm:
+            print(f"⚠️ Path {FTP_PATH} non accessibile, provo la root '/'...")
+            ftp.cwd("/")
+
+        try:
             with open(local_file, "rb") as f:
-                ftps.storbinary(f"STOR {remote_file}", f)
-            print(f"✅ File caricato correttamente: {remote_file}")
-    except all_errors as e:
-        print(f"❌ Errore FTP: {e}")
+                ftp.storbinary(f"STOR " + remote_file, f)
+            print(f"✅ File caricato correttamente in {ftp.pwd()}/{remote_file}")
+        except ftplib.error_perm as e:
+            if "550" in str(e):
+                print("⚠️ Permesso negato, ritento con /www.techandmore.eu/")
+                ftp.cwd("/www.techandmore.eu/")
+                with open(local_file, "rb") as f:
+                    ftp.storbinary(f"STOR " + remote_file, f)
+                print(f"✅ File caricato su /www.techandmore.eu/{remote_file}")
+            else:
+                raise
+
 
 if __name__ == "__main__":
     if aggiorna_data_html(LOCAL_INDEX):

@@ -1,40 +1,32 @@
-name: Run update_offers and upload to Aruba
+name: Aggiorna homepage TechAndMore con offerte Amazon
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
-  workflow_dispatch:
+    - cron: "*/15 * * * *"   # esegue ogni 15 minuti
+  workflow_dispatch:         # consente esecuzione manuale
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: 🔹 Clona repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: 🔹 Installa Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: 🔹 Installa dipendenze
         run: pip install -r bot/requirements.txt
 
-      - name: Run update_offers.py
+      - name: 🔹 Esegui update_offers.py (aggiorna homepage via FTP)
         run: python bot/update_offers.py
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-
-      - name: Upload offerte.html to Aruba via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASS }}
-          local-dir: bot/
-          server-dir: ${{ secrets.FTP_PATH }}
-          exclude: |
-            **/last_offers.json
-            **/__pycache__/**
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+          FTP_PATH: ${{ secrets.FTP_PATH }}

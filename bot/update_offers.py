@@ -117,17 +117,17 @@ def main():
         return
 
     try:
-    html = fetch_homepage()
-    updated_html = inject_offers_into_html(html, new_offers)
-    upload_homepage(updated_html)
+        html = fetch_homepage()
+        updated_html = inject_offers_into_html(html, new_offers)
+        upload_homepage(updated_html)
 
-    # 🔽 Messaggio Telegram con bottoni
-    url_sito = "https://www.techandmore.eu"
-    url_canale = "https://t.me/techandmore"  # <-- metti qui il link reale del tuo canale
+        # 🔽 Messaggio Telegram con bottoni
+        url_sito = "https://www.techandmore.eu"
+        url_canale = "https://t.me/techandmore"  # <-- metti qui il link reale del tuo canale
 
-    testo = "<b>🔥 Homepage aggiornata con le ultime offerte Amazon!</b>\n\n📢 Controlla le novità anche sul sito o unisciti al canale."
+        testo = "<b>🔥 Homepage aggiornata con le ultime offerte Amazon!</b>\n\n📢 Controlla le novità anche sul sito o unisciti al canale."
 
-    payload = {
+        payload = {
         "chat_id": CHAT_ID,
         "text": testo,
         "parse_mode": "HTML",
@@ -143,7 +143,7 @@ def main():
         })
     }
 
-    requests.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage", data=payload)
+        requests.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage", data=payload)
 
 except Exception as e:
     send_telegram_message(f"❌ Errore aggiornamento homepage: {e}")

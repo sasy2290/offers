@@ -21,7 +21,7 @@ FEEDS = [
 ]
 
 CACHE_FILE = "bot/last_offers.json"
-HTML_FILE = "bot/offerte.html"
+HTML_FILE = "bot/index.html"
 
 
 def load_cache():

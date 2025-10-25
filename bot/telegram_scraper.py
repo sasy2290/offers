@@ -2,7 +2,7 @@ import os
 import re
 import json
 import asyncio
-from telethon import TelegramClient, events
+from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.errors import AuthKeyDuplicatedError, SessionRevokedError
 
@@ -12,7 +12,7 @@ API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("TELETHON_SESSION", "")
 AFFILIATE_TAG = os.getenv("AFFILIATE_TAG", "techandmore05-21")
 
-# canali sorgente (pubblici o ID numerici)
+# Canali sorgente (pubblici)
 SOURCE_CHANNELS = [
     "SoloOfferteECodiciSconto",
     "offertebenesseretop",
@@ -26,14 +26,13 @@ SOURCE_CHANNELS = [
     "codici_sconto_sconti",
 ]
 
-# canale di destinazione
+# Canale destinazione
 TARGET_CHANNEL = "@amazontechandmore"
 
-# file cache
+# File cache
 CACHE_FILE = "bot/posted_cache.json"
 
 
-# === FUNZIONI ===
 def load_cache():
     """Carica ID messaggi già pubblicati"""
     if not os.path.exists(CACHE_FILE):
@@ -63,7 +62,7 @@ def replace_affiliate_tag(url):
 
 
 def process_message(text):
-    """Cerca e sostituisce i link Amazon"""
+    """Sostituisce i link Amazon nel testo"""
     urls = re.findall(r'https?://\S+', text)
     for url in urls:
         if "amazon." in url:
@@ -73,94 +72,47 @@ def process_message(text):
 
 async def run_scraper():
     client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
-    await client.connect()
-
-    if not await client.is_user_authorized():
-        print("⚠️ Sessione non autorizzata. Creazione nuova...")
-        await client.start()
-        new_session = client.session.save()
-        print(f"\nNuova SESSION_STRING generata:\n{new_session}\n")
-        print("👉 Copia questa stringa nei secrets GitHub come TELETHON_SESSION.")
-        await client.disconnect()
-        return
+    await client.start()
 
     cache = load_cache()
+    new_posts = 0
 
-    print("🔍 Verifica canali accessibili...")
-    valid_channels = []
+    print("🔍 Controllo nuovi messaggi...")
+
     for ch in SOURCE_CHANNELS:
         try:
             entity = await client.get_entity(ch)
-            valid_channels.append(entity)
-            print(f"✅ Accesso OK: {ch}")
+            messages = await client.get_messages(entity, limit=10)
+
+            for msg in messages:
+                if not msg.message or "amazon." not in msg.message.lower():
+                    continue
+                if msg.id in cache:
+                    continue
+
+                text = process_message(msg.message)
+                await client.send_message(TARGET_CHANNEL, text)
+                cache.append(msg.id)
+                new_posts += 1
+
         except Exception as e:
-            print(f"❌ Canale non accessibile: {ch} → {e}")
+            print(f"⚠️ Errore con {ch}: {e}")
 
-    if not valid_channels:
-        print("⚠️ Nessun canale valido trovato. Interruzione.")
-        await client.disconnect()
-        return
-
-    @client.on(events.NewMessage(chats=[c.id for c in valid_channels]))
-    async def handler(event):
-        msg = event.message
-        text = msg.message or ""
-        if "amazon." not in text.lower():
-            return
-
-        if msg.id in cache:
-            return  # già pubblicato
-
-        updated = process_message(text)
-        await client.send_message(TARGET_CHANNEL, updated)
-        cache.append(msg.id)
-        save_cache(cache)
-        print(f"📦 Pubblicato messaggio da {event.chat.title}")
-
-    print("🟢 Bot attivo. Monitoraggio canali Amazon in corso...")
-    await client.run_until_disconnected()
-
-
-async def main():
-    try:
-        await run_scraper()
-    except (AuthKeyDuplicatedError, SessionRevokedError):
-        print("⚠️ Sessione Telethon invalidata. Rigenerazione...")
-        new_client = TelegramClient(StringSession(), API_ID, API_HASH)
-        await new_client.start()
-        new_session = new_client.session.save()
-        print(f"\nNuova SESSION_STRING generata automaticamente:\n{new_session}\n")
-        print("👉 Copia questa stringa nei secrets GitHub come TELETHON_SESSION.")
-        await new_client.disconnect()
-    except Exception as e:
-        print(f"❌ Errore imprevisto: {e}")
-
-import sys
-import asyncio
-
-async def shutdown(client):
+    save_cache(cache)
     await client.disconnect()
-    sys.exit(0)
+
+    print(f"✅ Fine esecuzione. {new_posts} nuovi post pubblicati.")
+    return new_posts
+
 
 async def main():
-    client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     try:
         await run_scraper()
     except (AuthKeyDuplicatedError, SessionRevokedError):
-        print("⚠️ Sessione Telethon invalidata. Rigenerazione...")
-        new_client = TelegramClient(StringSession(), API_ID, API_HASH)
-        await new_client.start()
-        new_session = new_client.session.save()
-        print(f"\nNuova SESSION_STRING generata automaticamente:\n{new_session}\n")
-        print("👉 Copia questa stringa nei secrets GitHub come TELETHON_SESSION.")
-        await new_client.disconnect()
+        print("⚠️ Sessione Telethon invalidata. Rigenerazione necessaria.")
     except Exception as e:
         print(f"❌ Errore imprevisto: {e}")
-    finally:
-        await shutdown(client)
 
-        
 
 if __name__ == "__main__":
     asyncio.run(main())
-    

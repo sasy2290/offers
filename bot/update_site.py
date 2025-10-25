@@ -1,12 +1,12 @@
 import os
-import ftplib
+from ftplib import FTP_TLS
 from datetime import datetime
 
 # === CONFIG ===
 FTP_HOST = os.getenv("FTP_HOST")
 FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
-FTP_PATH = "/"
+FTP_PATH = os.getenv("FTP_PATH", "/")
 LOCAL_INDEX = "index.html"
 
 def aggiorna_data_html(file_path):
@@ -44,18 +44,21 @@ def aggiorna_data_html(file_path):
 
 
 def upload_ftp(local_file, remote_file):
-    """Carica il file via FTP"""
-    with ftplib.FTP(FTP_HOST) as ftp:
-        ftp.login(FTP_USER, FTP_PASS)
-        ftp.cwd(FTP_PATH)
+    """Carica il file via FTPS (compatibile con Aruba)"""
+    with FTP_TLS() as ftps:
+        ftps.connect(FTP_HOST, 21)
+        ftps.auth()      # avvia TLS esplicito
+        ftps.prot_p()    # protegge i dati
+        ftps.login(FTP_USER, FTP_PASS)
+        ftps.cwd(FTP_PATH)
         with open(local_file, "rb") as f:
-            ftp.storbinary(f"STOR {remote_file}", f)
-        print(f"✅ File caricato su {FTP_HOST}/{remote_file}")
+            ftps.storbinary(f"STOR {remote_file}", f)
+        print(f"✅ File caricato su {FTP_HOST}{FTP_PATH}{remote_file}")
 
 
 if __name__ == "__main__":
     if aggiorna_data_html(LOCAL_INDEX):
         upload_ftp(LOCAL_INDEX, "index.html")
-        print("✅ Homepage aggiornata su Aruba.")
+        print("✅ Homepage aggiornata su Aruba tramite FTPS.")
     else:
         print("⚠️ Nessuna modifica effettuata, ma data aggiornata comunque.")

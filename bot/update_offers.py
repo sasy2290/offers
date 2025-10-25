@@ -4,13 +4,20 @@ import feedparser
 from datetime import datetime
 import time
 import json
+from ftplib import FTP
 
+# === Config ===
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+FTP_HOST = os.getenv("FTP_HOST")
+FTP_USER = os.getenv("FTP_USER")
+FTP_PASS = os.getenv("FTP_PASS")
+FTP_PATH = os.getenv("FTP_PATH")  # esempio: /public_html/index.html o /index.html
 
-if not TELEGRAM_TOKEN or not CHAT_ID:
-    raise ValueError("Mancano TELEGRAM_TOKEN o CHAT_ID nei Secrets GitHub.")
+if not all([TELEGRAM_TOKEN, CHAT_ID, FTP_HOST, FTP_USER, FTP_PASS, FTP_PATH]):
+    raise ValueError("Mancano uno o più secrets richiesti (TELEGRAM, FTP).")
 
+# === Fonti offerte Amazon ===
 FEEDS = [
     "https://www.offerteshock.it/feed/",
     "https://www.kechiusa.it/offerte-amazon/feed/",
@@ -21,7 +28,6 @@ FEEDS = [
 ]
 
 CACHE_FILE = "bot/last_offers.json"
-HTML_FILE = "bot/index.html"
 
 
 def load_cache():
@@ -54,7 +60,7 @@ def get_rss_offers(limit=10):
                 if len(offers) >= limit:
                     break
         except Exception as e:
-            print(f"Errore lettura feed {feed_url}: {e}")
+            print(f"Errore feed {feed_url}: {e}")
         time.sleep(1)
         if len(offers) >= limit:
             break
@@ -62,93 +68,67 @@ def get_rss_offers(limit=10):
 
 
 def send_telegram_message(text: str):
-    """Invia un messaggio Telegram."""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML", "disable_web_page_preview": False}
+    payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML"}
     r = requests.post(url, data=payload)
     if r.status_code != 200:
-        raise RuntimeError(f"Errore Telegram: {r.text}")
+        print("Errore Telegram:", r.text)
 
 
-def generate_html(offers):
-    """Genera offerte.html con contatore visite e ultime offerte."""
-    html = f"""<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8">
-<title>Offerte Amazon - TechAndMore</title>
-<style>
-body {{font-family: Arial, sans-serif; background:#fafafa; color:#111; margin:40px;}}
-a {{color:#0073bb; text-decoration:none;}}
-.offer {{background:white; padding:15px; margin:10px 0; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.1);}}
-h2 {{color:#222;}}
-.counter {{font-size:13px; color:#555; text-align:right; margin-top:20px;}}
-</style>
-</head>
-<body>
-<h2>🔥 Ultime offerte Amazon (aggiornate {datetime.now().strftime('%H:%M %d/%m/%Y')})</h2>
-"""
+def fetch_homepage():
+    """Scarica la homepage esistente da Aruba."""
+    ftp = FTP(FTP_HOST)
+    ftp.login(FTP_USER, FTP_PASS)
+    lines = []
+    ftp.retrlines(f"RETR {FTP_PATH}", lines.append)
+    ftp.quit()
+    return "\n".join(lines)
 
+
+def upload_homepage(content):
+    """Ricarica la homepage modificata su Aruba."""
+    ftp = FTP(FTP_HOST)
+    ftp.login(FTP_USER, FTP_PASS)
+    ftp.storbinary(f"STOR {FTP_PATH}", content.encode("utf-8"))
+    ftp.quit()
+
+
+def inject_offers_into_html(original_html, offers):
+    """Sostituisce il blocco tra <!-- OFFERTE_START --> e <!-- OFFERTE_END -->"""
+    start_tag = "<!-- OFFERTE_START -->"
+    end_tag = "<!-- OFFERTE_END -->"
+    start = original_html.find(start_tag)
+    end = original_html.find(end_tag)
+
+    if start == -1 or end == -1:
+        raise ValueError("Tag OFFERTE_START o OFFERTE_END mancanti nella homepage.")
+
+    offers_html = f"\n<h2>🔥 Offerte Amazon (aggiornate {datetime.now().strftime('%H:%M %d/%m/%Y')})</h2>\n"
     for o in offers:
-        html += f"<div class='offer'><a href='{o['link']}' target='_blank'>{o['title']}</a></div>\n"
+        offers_html += f"<div><a href='{o['link']}' target='_blank'>{o['title']}</a></div>\n"
 
-    # --- Contatore visite locale leggero ---
-    html += """
-<div class="counter">
-<script>
-  if (localStorage.getItem('visitCount')) {
-      localStorage.setItem('visitCount', Number(localStorage.getItem('visitCount')) + 1);
-  } else {
-      localStorage.setItem('visitCount', 1);
-  }
-  document.write("👁️ Visite locali: " + localStorage.getItem('visitCount'));
-</script>
-</div>
-"""
-
-    # --- (Opzionale) Google Analytics ---
-    html += """
-<!-- Google tag (gtag.js) -->
-<!--
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){{dataLayer.push(arguments);}}
-  gtag('js', new Date());
-  gtag('config', 'G-XXXXXXXXXX');
-</script>
--->
-"""
-
-    html += "</body></html>"
-
-    with open(HTML_FILE, "w", encoding="utf-8") as f:
-        f.write(html)
+    return original_html[:start + len(start_tag)] + offers_html + original_html[end:]
 
 
 def main():
-    cache = load_cache()
-    new_offers = []
     offers = get_rss_offers(limit=10)
+    if not offers:
+        send_telegram_message("⚠️ Nessuna offerta trovata nei feed RSS.")
+        return
 
-    for o in offers:
-        if o["link"] not in cache:
-            new_offers.append(o)
-            cache.append(o["link"])
-
+    cache = load_cache()
+    new_offers = [o for o in offers if o["link"] not in cache]
+    cache.extend([o["link"] for o in new_offers])
     cache = cache[-100:]
     save_cache(cache)
 
-    if not new_offers:
-        send_telegram_message("⏳ Nessuna nuova offerta Amazon trovata.")
-        return
-
-    msg = f"<b>🔥 Nuove offerte Amazon</b>\nAggiornato: {datetime.now().strftime('%H:%M %d/%m/%Y')}\n\n"
-    for o in new_offers:
-        msg += f"🛒 <a href='{o['link']}'>{o['title']}</a>\n\n"
-
-    send_telegram_message(msg)
-    generate_html(new_offers)
+    try:
+        html = fetch_homepage()
+        updated_html = inject_offers_into_html(html, new_offers)
+        upload_homepage(updated_html)
+        send_telegram_message("✅ Homepage aggiornata con le ultime offerte Amazon.")
+    except Exception as e:
+        send_telegram_message(f"❌ Errore aggiornamento homepage: {e}")
 
 
 if __name__ == "__main__":

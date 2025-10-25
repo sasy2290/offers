@@ -14,7 +14,6 @@ AFFILIATE_TAG = os.getenv("AFFILIATE_TAG")
 SOURCE_CHANNELS = [
     "offertepertutti",  # esempio
     "scontiesubito",    # aggiungi altri
-    "offertepiu", 
     "SoloOfferteECodiciSconto",
     "offertebenesseretop",
     "offerte24hgruppo",
@@ -25,7 +24,6 @@ SOURCE_CHANNELS = [
     "mondodiofferte",
     "giga_offertee",
     "codici_sconto_sconti",
-    "-1001521567437"
 ]
 
 # Canale tuo dove pubblicare

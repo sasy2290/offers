@@ -116,20 +116,26 @@ def main():
         send_telegram_message("⚠️ Nessuna offerta trovata nei feed RSS.")
         return
 
-    cache = load_cache()
-    new_offers = [o for o in offers if o["link"] not in cache]
-    cache.extend([o["link"] for o in new_offers])
-    cache = cache[-100:]
-    save_cache(cache)
-
     try:
-        html = fetch_homepage()
-        updated_html = inject_offers_into_html(html, new_offers)
-        upload_homepage(updated_html)
-        send_telegram_message("✅ Homepage aggiornata con le ultime offerte Amazon.")
-    except Exception as e:
-        send_telegram_message(f"❌ Errore aggiornamento homepage: {e}")
+    html = fetch_homepage()
+    updated_html = inject_offers_into_html(html, new_offers)
+    upload_homepage(updated_html)
 
+    # 🔽 Messaggio Telegram con pulsante verso il sito
+    url_sito = "https://www.techandmore.eu"
+    testo = "<b>🔥 Homepage aggiornata con le ultime offerte Amazon!</b>"
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": testo,
+        "parse_mode": "HTML",
+        "reply_markup": json.dumps({
+            "inline_keyboard": [[{"text": "🌐 Vai al sito TechAndMore.eu", "url": url_sito}]]
+        })
+    }
+    requests.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage", data=payload)
+
+except Exception as e:
+    send_telegram_message(f"❌ Errore aggiornamento homepage: {e}")
 
 if __name__ == "__main__":
     main()

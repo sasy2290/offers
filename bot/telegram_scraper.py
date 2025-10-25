@@ -142,6 +142,23 @@ async def shutdown(client):
     await client.disconnect()
     sys.exit(0)
 
+async def main():
+    try:
+        await run_scraper()
+    except (AuthKeyDuplicatedError, SessionRevokedError):
+        print("⚠️ Sessione Telethon invalidata. Rigenerazione...")
+        new_client = TelegramClient(StringSession(), API_ID, API_HASH)
+        await new_client.start()
+        new_session = new_client.session.save()
+        print(f"\nNuova SESSION_STRING generata automaticamente:\n{new_session}\n")
+        print("👉 Copia questa stringa nei secrets GitHub come TELETHON_SESSION.")
+        await new_client.disconnect()
+    except Exception as e:
+        print(f"❌ Errore imprevisto: {e}")
+    finally:
+        await shutdown(client)
+        
+
 if __name__ == "__main__":
     asyncio.run(main())
-    await shutdown(client)
+    

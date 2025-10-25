@@ -12,7 +12,6 @@ API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("TELETHON_SESSION", "")
 AFFILIATE_TAG = os.getenv("AFFILIATE_TAG", "techandmore05-21")
 
-# Canali sorgente (pubblici)
 SOURCE_CHANNELS = [
     "SoloOfferteECodiciSconto",
     "offertebenesseretop",
@@ -26,33 +25,37 @@ SOURCE_CHANNELS = [
     "codici_sconto_sconti",
 ]
 
-# Canale destinazione
 TARGET_CHANNEL = "@amazontechandmore"
-
-# File cache
 CACHE_FILE = "bot/posted_cache.json"
 
 
 def load_cache():
-    """Carica ID messaggi già pubblicati"""
     if not os.path.exists(CACHE_FILE):
-        return []
+        return {"ids": [], "texts": []}
     try:
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
-        return []
+        return {"ids": [], "texts": []}
 
 
 def save_cache(cache):
-    """Salva la cache su file"""
     os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
-        json.dump(cache[-500:], f, ensure_ascii=False, indent=2)
+        json.dump(
+            {"ids": cache["ids"][-500:], "texts": cache["texts"][-500:]},
+            f, ensure_ascii=False, indent=2
+        )
+
+
+def normalize_text(text):
+    """Normalizza testo per confronti duplicati"""
+    text = re.sub(r"\s+", " ", text.lower().strip())
+    text = re.sub(r"http\S+", "", text)  # rimuove link
+    return text
 
 
 def replace_affiliate_tag(url):
-    """Sostituisce o aggiunge il tag affiliato Amazon"""
     if "tag=" in url:
         return re.sub(r'tag=[^&]+', f'tag={AFFILIATE_TAG}', url)
     elif "amazon." in url:
@@ -62,7 +65,6 @@ def replace_affiliate_tag(url):
 
 
 def process_message(text):
-    """Sostituisce i link Amazon nel testo"""
     urls = re.findall(r'https?://\S+', text)
     for url in urls:
         if "amazon." in url:
@@ -77,7 +79,7 @@ async def run_scraper():
     cache = load_cache()
     new_posts = 0
 
-    print("🔍 Controllo nuovi messaggi...")
+    print("🔍 Controllo nuovi messaggi Amazon...")
 
     for ch in SOURCE_CHANNELS:
         try:
@@ -87,12 +89,18 @@ async def run_scraper():
             for msg in messages:
                 if not msg.message or "amazon." not in msg.message.lower():
                     continue
-                if msg.id in cache:
+
+                text = msg.message.strip()
+                normalized = normalize_text(text)
+
+                # Evita duplicati per ID o testo
+                if msg.id in cache["ids"] or normalized in cache["texts"]:
                     continue
 
-                text = process_message(msg.message)
-                await client.send_message(TARGET_CHANNEL, text)
-                cache.append(msg.id)
+                processed = process_message(text)
+                await client.send_message(TARGET_CHANNEL, processed)
+                cache["ids"].append(msg.id)
+                cache["texts"].append(normalized)
                 new_posts += 1
 
         except Exception as e:
@@ -101,17 +109,15 @@ async def run_scraper():
     save_cache(cache)
     await client.disconnect()
 
-    print(f"✅ Fine esecuzione. {new_posts} nuovi post pubblicati.")
+    print(f"✅ Fine esecuzione. {new_posts} nuove offerte pubblicate.")
     return new_posts
 
 
-import sys
-import asyncio
-
 async def main():
     try:
-        # Timeout massimo: 60 secondi
-        await asyncio.wait_for(run_scraper(), timeout=120)
+        # Timeout massimo di 2 minuti
+        new_posts = await asyncio.wait_for(run_scraper(), timeout=120)
+        print(f"📊 Totale offerte nuove trovate: {new_posts}")
     except asyncio.TimeoutError:
         print("⏱️ Timeout raggiunto, chiusura forzata.")
     except (AuthKeyDuplicatedError, SessionRevokedError):
@@ -119,8 +125,9 @@ async def main():
     except Exception as e:
         print(f"❌ Errore imprevisto: {e}")
     finally:
-        print("🔚 Script completato, terminazione pulita.")
-        sys.exit(0)
+        print("🔚 Script completato.")
+        return
+
 
 if __name__ == "__main__":
     asyncio.run(main())

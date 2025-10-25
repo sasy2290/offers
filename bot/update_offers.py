@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 from ftplib import FTP
 
+# === Config ===
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 FTP_HOST = os.getenv("FTP_HOST")
@@ -19,6 +20,7 @@ HEADERS = {
 }
 
 
+# === Utility ===
 def load_cache():
     if not os.path.exists(CACHE_FILE):
         return []
@@ -34,8 +36,9 @@ def save_cache(cache):
         json.dump(cache, f, ensure_ascii=False, indent=2)
 
 
+# === Scraping Amazon ===
 def scrape_amazon_offers(limit=10):
-    """Estrae offerte reali con titolo, prezzo e immagine."""
+    """Estrae offerte reali con titolo, prezzo e immagine da amazon.it/offerte"""
     url = "https://www.amazon.it/gp/goldbox"
     r = requests.get(url, headers=HEADERS, timeout=15)
     soup = BeautifulSoup(r.text, "html.parser")
@@ -61,6 +64,7 @@ def scrape_amazon_offers(limit=10):
     return offers
 
 
+# === Telegram ===
 def send_telegram_message(text, buttons=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML"}
@@ -69,6 +73,7 @@ def send_telegram_message(text, buttons=None):
     requests.post(url, data=payload)
 
 
+# === FTP ===
 def fetch_homepage():
     ftp = FTP(FTP_HOST)
     ftp.login(FTP_USER, FTP_PASS)
@@ -85,6 +90,7 @@ def upload_homepage(content):
     ftp.quit()
 
 
+# === HTML injection ===
 def inject_offers_into_html(original_html, offers):
     start_tag = "<!-- OFFERTE_START -->"
     end_tag = "<!-- OFFERTE_END -->"
@@ -110,6 +116,7 @@ def inject_offers_into_html(original_html, offers):
     return original_html[:start + len(start_tag)] + offers_html + original_html[end:]
 
 
+# === Main ===
 def main():
     offers = scrape_amazon_offers(limit=10)
     if not offers:
@@ -127,8 +134,22 @@ def main():
         updated_html = inject_offers_into_html(html, offers)
         upload_homepage(updated_html)
 
+        # Prepara messaggio Telegram con le prime 3 offerte
+        msg = "<b>🔥 Nuove offerte Amazon!</b>\n\n"
+        for o in offers[:3]:
+            msg += f"🛒 <a href='{o['link']}'>{o['title']}</a>\n💰 {o['price']}\n\n"
+        msg += "🌐 <b>Scopri tutte le offerte su TechAndMore.eu</b>"
+
         buttons = [
             [{"text": "🌐 Vai al sito TechAndMore.eu", "url": "https://www.techandmore.eu"}],
             [{"text": "🔔 Iscriviti al canale Telegram", "url": "https://t.me/techandmore"}],
         ]
-        msg = "<b>🔥 Homepage aggiornata con offerte reali Amazon (con immagini e prezzi)!
+
+        send_telegram_message(msg, buttons)
+
+    except Exception as e:
+        send_telegram_message(f"❌ Errore aggiornamento homepage: {e}")
+
+
+if __name__ == "__main__":
+    main()

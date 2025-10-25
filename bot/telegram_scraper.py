@@ -143,6 +143,7 @@ async def shutdown(client):
     sys.exit(0)
 
 async def main():
+    client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     try:
         await run_scraper()
     except (AuthKeyDuplicatedError, SessionRevokedError):
@@ -157,6 +158,7 @@ async def main():
         print(f"❌ Errore imprevisto: {e}")
     finally:
         await shutdown(client)
+
         
 
 if __name__ == "__main__":

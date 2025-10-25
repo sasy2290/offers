@@ -1,0 +1,28 @@
+name: Repost offerte da altri canali Telegram
+
+on:
+  schedule:
+    - cron: "*/3 * * * *"   # ogni 3 minuti
+  workflow_dispatch:
+
+jobs:
+  repost:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🔹 Clona repository
+        uses: actions/checkout@v4
+
+      - name: 🔹 Installa Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 🔹 Installa Telethon
+        run: pip install telethon
+
+      - name: 🔹 Esegui repost Telegram
+        run: python bot/telegram_repost.py
+        env:
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}

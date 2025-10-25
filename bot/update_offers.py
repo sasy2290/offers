@@ -11,6 +11,7 @@ CHAT_ID = os.getenv("CHAT_ID")
 if not TELEGRAM_TOKEN or not CHAT_ID:
     raise ValueError("Mancano TELEGRAM_TOKEN o CHAT_ID nei Secrets GitHub.")
 
+# Feed RSS di siti che pubblicano offerte Amazon
 FEEDS = [
     "https://www.offerteshock.it/feed/",
     "https://www.kechiusa.it/offerte-amazon/feed/",
@@ -21,7 +22,7 @@ FEEDS = [
 ]
 
 CACHE_FILE = "bot/last_offers.json"
-HTML_FILE = "bot/offers.html"
+HTML_FILE = "bot/offerte.html"
 
 
 def load_cache():
@@ -62,6 +63,7 @@ def get_rss_offers(limit=10):
 
 
 def send_telegram_message(text: str):
+    """Invia un messaggio Telegram."""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML", "disable_web_page_preview": False}
     r = requests.post(url, data=payload)
@@ -70,6 +72,7 @@ def send_telegram_message(text: str):
 
 
 def generate_html(offers):
+    """Genera il file offerte.html con le ultime offerte Amazon."""
     html = """<!DOCTYPE html>
 <html lang="it">
 <head>

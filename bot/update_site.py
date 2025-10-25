@@ -44,17 +44,23 @@ def aggiorna_data_html(file_path):
 
 
 def upload_ftp(local_file, remote_file):
-    """Carica il file via FTPS (compatibile con Aruba)"""
-    with FTP_TLS() as ftps:
-        ftps.connect(FTP_HOST, 21)
-        ftps.auth()      # avvia TLS esplicito
-        ftps.prot_p()    # protegge i dati
-        ftps.login(FTP_USER, FTP_PASS)
-        ftps.cwd(FTP_PATH)
-        with open(local_file, "rb") as f:
-            ftps.storbinary(f"STOR {remote_file}", f)
-        print(f"✅ File caricato su {FTP_HOST}{FTP_PATH}{remote_file}")
+    """Test connessione FTPS su Aruba"""
+    from ftplib import FTP_TLS, all_errors
 
+    try:
+        print(f"Connessione a {FTP_HOST}...")
+        with FTP_TLS() as ftps:
+            ftps.connect(FTP_HOST, 21, timeout=15)
+            ftps.auth()
+            ftps.prot_p()
+            ftps.login(FTP_USER, FTP_PASS)
+            ftps.cwd(FTP_PATH)
+            print(f"✅ Connessione riuscita. Directory attuale: {ftps.pwd()}")
+            with open(local_file, "rb") as f:
+                ftps.storbinary(f"STOR {remote_file}", f)
+            print(f"✅ File caricato correttamente: {remote_file}")
+    except all_errors as e:
+        print(f"❌ Errore FTP: {e}")
 
 if __name__ == "__main__":
     if aggiorna_data_html(LOCAL_INDEX):

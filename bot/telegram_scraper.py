@@ -23,6 +23,7 @@ SOURCE_CHANNELS = [
     "mondodiofferte",
     "giga_offertee",
     "codici_sconto_sconti",
+    "modascontata",
 ]
 
 TARGET_CHANNEL = "@amazontechandmore"

@@ -24,6 +24,21 @@ SOURCE_CHANNELS = [
     "giga_offertee",
     "codici_sconto_sconti",
     "modascontata",
+    "offertepoint",
+    "tecnofferte",
+    "super_promo_it",
+    "gosumania_offerte_sconti",
+    "prezzitech",
+    "ScontiClubOfficial",
+    "prezzoTagliatoModa",
+    "offertesmartworld",
+    "affarefattoamz",
+    "offerte_top_sconti",
+    "offerteabbigliamento",
+    "prezzaccitech",
+    "Homezoneit",
+    "offerteinformatiche",
+    "ScontologyErrori",
 ]
 
 TARGET_CHANNEL = "@amazontechandmore"

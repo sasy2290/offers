@@ -1,19 +1,56 @@
 import os
-import ftplib
-from datetime import datetime
-import time
-import random
 import re
+import json
+from datetime import datetime
+from ftplib import FTP_TLS
 
 # === CONFIG ===
 FTP_HOST = os.getenv("FTP_HOST")
 FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
-FTP_PATH = "/www.techandmore.eu/"
+FTP_PATH = "/www.techandmore.eu/"  # percorso del tuo sito
 LOCAL_INDEX = "index.html"
+OFFERS_FILE = "bot/latest_offers.json"  # file generato dallo scraper
 
-def aggiorna_data_html(file_path):
-    """Aggiorna data visibile + cache buster"""
+
+# === FUNZIONI ===
+def carica_offerte():
+    """Legge il file JSON delle offerte generate dallo scraper"""
+    if not os.path.exists(OFFERS_FILE):
+        print("⚠️ Nessun file di offerte trovato.")
+        return []
+
+    try:
+        with open(OFFERS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data[:20]  # solo le prime 20 offerte
+    except Exception as e:
+        print(f"❌ Errore nel leggere le offerte: {e}")
+        return []
+
+
+def genera_html_offerte(offerte):
+    """Genera blocchi HTML per le offerte"""
+    blocchi = []
+    for o in offerte:
+        titolo = o.get("title", "Offerta Amazon")
+        link = o.get("url", "#")
+        prezzo = o.get("price", "")
+        blocchi.append(
+            f"""
+            <div class="offerta">
+                <a href="{link}" target="_blank" rel="noopener">
+                    <p><strong>{titolo}</strong></p>
+                    <p>{prezzo}</p>
+                </a>
+            </div>
+            """
+        )
+    return "\n".join(blocchi)
+
+
+def aggiorna_html(file_path, offerte):
+    """Aggiorna index.html con nuove offerte e data"""
     if not os.path.exists(file_path):
         print(f"❌ File non trovato: {file_path}")
         return False
@@ -22,67 +59,49 @@ def aggiorna_data_html(file_path):
         html = f.read()
 
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
-    uniq = str(int(time.time()))
+    blocchi = genera_html_offerte(offerte)
 
-    if "Aggiornato automaticamente" in html:
-        html = re.sub(
-            r"Aggiornato automaticamente[^<]*",
-            f"Aggiornato automaticamente {now} <!-- {uniq} -->",
-            html
-        )
-    else:
-        html = html.replace(
-            "</body>",
-            f"\n<p style='text-align:center;color:#aaa;font-size:12px;'>Aggiornato automaticamente {now} <!-- {uniq} --></p>\n</body>"
-        )
+    # Sostituisce il blocco delle offerte
+    html = re.sub(
+        r"(<!-- OFFERTE START -->)(.*?)(<!-- OFFERTE END -->)",
+        f"\\1\n{blocchi}\n\\3",
+        html,
+        flags=re.S
+    )
+
+    # Aggiorna data
+    html = re.sub(
+        r"Aggiornato automaticamente[^<]*",
+        f"Aggiornato automaticamente {now}",
+        html
+    )
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(html)
 
-    print(f"🕒 Data aggiornata a {now}")
+    print(f"🕒 HTML aggiornato con {len(offerte)} offerte e data {now}")
     return True
 
 
-def upload_ftp(local_file):
-    """Upload con doppia rinomina per forzare cache Aruba"""
-    try:
-        ftps = ftplib.FTP_TLS(FTP_HOST)
-        ftps.login(FTP_USER, FTP_PASS)
-        ftps.prot_p()
-        ftps.cwd(FTP_PATH)
-        print(f"✅ Connesso a {FTP_HOST}{FTP_PATH}")
-
-        temp_a = f"index_a_{int(time.time())}.html"
-        temp_b = f"index_b_{int(time.time())}.html"
-
-        # 1️⃣ Carica file temporaneo A
-        with open(local_file, "rb") as f:
-            ftps.storbinary(f"STOR {temp_a}", f)
-        print(f"📤 Caricato {temp_a}")
-
-        # 2️⃣ Rinomina A→B per creare nuova entry cache
-        ftps.rename(temp_a, temp_b)
-        print(f"🔁 Rinomina {temp_a} → {temp_b}")
-
-        # 3️⃣ Cancella vecchio index.html se esiste
-        try:
-            ftps.delete("index.html")
-        except Exception:
-            pass
-
-        # 4️⃣ Rinomina B→index.html (forza refresh CDN)
-        ftps.rename(temp_b, "index.html")
-        print("✅ Pubblicato definitivamente index.html")
-
-        ftps.quit()
-        print("🏁 Upload e refresh cache completati.")
-
-    except Exception as e:
-        print(f"❌ Errore FTP: {e}")
+def upload_ftps(local_file, remote_file):
+    """Carica il file su Aruba via FTPS"""
+    print(f"🌐 Connessione a {FTP_HOST}...")
+    ftps = FTP_TLS(FTP_HOST)
+    ftps.login(FTP_USER, FTP_PASS)
+    ftps.prot_p()
+    ftps.cwd(FTP_PATH)
+    with open(local_file, "rb") as f:
+        ftps.storbinary(f"STOR {remote_file}", f)
+    ftps.quit()
+    print(f"✅ File caricato su {FTP_PATH}{remote_file}")
 
 
+# === MAIN ===
 if __name__ == "__main__":
-    if aggiorna_data_html(LOCAL_INDEX):
-        upload_ftp(LOCAL_INDEX)
+    offerte = carica_offerte()
+    if aggiorna_html(LOCAL_INDEX, offerte):
+        upload_ftps(LOCAL_INDEX, "index.html")
+        print("✅ Homepage aggiornata su Aruba con offerte Amazon.")
     else:
-        print("⚠️ Nessuna modifica effettuata.")
+        print("⚠️ Nessuna modifica eseguita.")
+

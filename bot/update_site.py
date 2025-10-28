@@ -74,6 +74,12 @@ def aggiorna_index():
         html = f.read()
 
     print(f"📂 Lettura JSON da: {LOCAL_JSON}")
+    print("📄 Contenuto JSON (preview):")
+if os.path.exists(LOCAL_JSON):
+    print(open(LOCAL_JSON, "r", encoding="utf-8").read()[:500])
+else:
+    print("❌ File JSON non trovato.")
+
     if not os.path.exists(LOCAL_JSON):
         print("⚠️ Nessun file latest_offers.json trovato.")
         offerte_html = "<p>Nessuna offerta disponibile.</p>"

@@ -2,11 +2,13 @@
   {
     "title": "Echo Dot (5ª gen)",
     "url": "https://www.amazon.it/dp/B09B96V6YP?tag=techandmore05-21",
-    "price": "Ora a 29,99 €"
+    "price": "Ora a 29,99 €",
+    "image": "https://m.media-amazon.com/images/I/61M+I7y2vZL._AC_SL1000_.jpg"
   },
   {
     "title": "Fire TV Stick 4K",
     "url": "https://www.amazon.it/dp/B0B5YHXZ7T?tag=techandmore05-21",
-    "price": "Scontata a 39,99 €"
+    "price": "Scontata a 39,99 €",
+    "image": "https://m.media-amazon.com/images/I/51CGbLz7kYL._AC_SL1000_.jpg"
   }
 ]

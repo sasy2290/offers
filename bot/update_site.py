@@ -36,16 +36,26 @@ def scarica_index_da_aruba():
 
 
 def genera_html_offerte(offerte):
-    """Crea blocco HTML per le offerte"""
+    """Genera blocco HTML per le offerte del JSON."""
     blocchi = []
     for o in offerte:
-        titolo = o.get("titolo", "Offerta Amazon")
-        link = o.get("link", "#")
-        prezzo = o.get("prezzo", "")
-        blocchi.append(
-            f"<p><a href='{link}' target='_blank' style='color:#00bfff;'>{titolo}</a> {prezzo}</p>"
-        )
-    return "\n".join(blocchi) if blocchi else "<p>Nessuna offerta trovata.</p>"
+        titolo = o.get("titolo") or o.get("title") or "Offerta Amazon"
+        link = o.get("link") or o.get("url") or "#"
+        prezzo = o.get("prezzo") or o.get("price") or ""
+        img = o.get("image") or "https://www.techandmore.eu/logo.png"
+
+        blocco = f"""
+        <div style="text-align:center; margin:20px;">
+            <a href="{link}" target="_blank" style="text-decoration:none; color:#00bfff;">
+                <img src="{img}" alt="{titolo}" style="width:200px; border-radius:8px; display:block; margin:auto;">
+                <p style="font-size:16px; font-weight:bold;">{titolo}</p>
+                <p style="color:#ff9900;">{prezzo}</p>
+            </a>
+        </div>
+        """
+        blocchi.append(blocco)
+    return "\n".join(blocchi)
+
 
 
 def aggiorna_index():

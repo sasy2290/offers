@@ -30,7 +30,7 @@ def carica_offerte():
 
 
 def genera_html_offerte(offerte):
-    """Genera blocchi HTML eleganti per ogni offerta"""
+    """Genera card HTML per ogni offerta"""
     blocchi = []
     for o in offerte:
         titolo = o.get("title", "Offerta Amazon")
@@ -39,23 +39,18 @@ def genera_html_offerte(offerte):
         immagine = o.get("image", "https://www.amazon.it/favicon.ico")
 
         blocchi.append(f"""
-        <div style="background:#111;border:1px solid #222;
-                    border-radius:12px;padding:15px;margin:10px;
-                    text-align:center;max-width:300px;display:inline-block;
-                    vertical-align:top;">
-            <img src="{immagine}" alt="Prodotto" style="width:100px;height:auto;margin-bottom:10px;">
-            <p style="font-weight:bold;color:#fff;font-size:15px;">{titolo}</p>
-            <p style="color:#00bfff;font-size:14px;">{prezzo}</p>
-            <a href="{link}" target="_blank" rel="noopener noreferrer"
-               style="display:inline-block;margin-top:8px;padding:8px 15px;
-                      background:#00bfff;color:#000;border-radius:8px;
-                      text-decoration:none;font-weight:bold;">
+        <div class="offerta">
+            <img src="{immagine}" alt="Prodotto">
+            <p class="offerta-title">{titolo}</p>
+            <p class="offerta-prezzo">{prezzo}</p>
+            <a href="{link}" target="_blank" rel="noopener noreferrer">
                 Vai all'offerta 🔗
             </a>
         </div>
         """)
 
     return "\n".join(blocchi)
+
 
 
 

@@ -9,7 +9,7 @@ FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
 FTP_PATH = os.getenv("FTP_PATH", "/www.techandmore.eu/")
 LOCAL_INDEX = "index.html"
-LOCAL_JSON = "latest_offers.json"
+LOCAL_JSON = "bot/latest_offers.json"
 
 
 def genera_html_offerte(offerte):
@@ -43,8 +43,9 @@ def aggiorna_index():
 
     # Carica le offerte
     if not os.path.exists(LOCAL_JSON):
+        print(f"📁 Percorso file JSON controllato: {os.path.abspath(LOCAL_JSON)}")
         print("⚠️ Nessun file latest_offers.json trovato.")
-        offerte_html = "<p>Nessuna offerta disponibile.</p>"
+        offerte_html = "<p style='color:#00bfff;'>⚠ Nessuna offerta trovata nel JSON.</p>"
     else:
         with open(LOCAL_JSON, "r", encoding="utf-8") as f:
             try:

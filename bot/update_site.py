@@ -11,9 +11,13 @@ FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
 FTP_PATH = os.getenv("FTP_PATH", "/www.techandmore.eu/")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOCAL_INDEX = os.path.join(BASE_DIR, "../index.html")
-LOCAL_JSON = os.path.join(BASE_DIR, "latest_offers.json")
+# Percorsi assoluti
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+LOCAL_INDEX = os.path.join(REPO_ROOT, "index.html")
+LOCAL_JSON = os.path.join(REPO_ROOT, "bot", "latest_offers.json")
+
+print(f"📁 INDEX path: {LOCAL_INDEX}")
+print(f"📁 JSON path: {LOCAL_JSON}")
 
 
 def scarica_index_da_aruba():
@@ -63,29 +67,25 @@ def genera_html_offerte(offerte):
 def aggiorna_index():
     """Aggiorna index.html scaricato con le nuove offerte"""
     if not os.path.exists(LOCAL_INDEX):
-        print(f"❌ index.html non trovato in locale: {LOCAL_INDEX}")
+        print(f"❌ index.html non trovato: {LOCAL_INDEX}")
         return False
 
     with open(LOCAL_INDEX, "r", encoding="utf-8") as f:
         html = f.read()
 
-    # Carica offerte dal JSON
-    json_path = os.path.abspath(LOCAL_JSON)
-    print(f"📂 Lettura JSON da: {json_path}")
-
-    if os.path.exists(json_path):
+    print(f"📂 Lettura JSON da: {LOCAL_JSON}")
+    if not os.path.exists(LOCAL_JSON):
+        print("⚠️ Nessun file latest_offers.json trovato.")
+        offerte_html = "<p>Nessuna offerta disponibile.</p>"
+    else:
         try:
-            with open(json_path, "r", encoding="utf-8") as f:
+            with open(LOCAL_JSON, "r", encoding="utf-8") as f:
                 offerte = json.load(f)
             print(f"✅ Caricate {len(offerte)} offerte dal JSON.")
+            offerte_html = genera_html_offerte(offerte[:12])
         except Exception as e:
             print(f"⚠️ Errore lettura JSON: {e}")
-            offerte = []
-    else:
-        print("⚠️ File latest_offers.json non trovato.")
-        offerte = []
-
-    offerte_html = genera_html_offerte(offerte[:12])
+            offerte_html = "<p>Errore nel caricamento delle offerte.</p>"
 
     # Sostituisci solo la sezione OFFERTE
     if "<!-- OFFERTE START -->" in html and "<!-- OFFERTE END -->" in html:
@@ -99,7 +99,6 @@ def aggiorna_index():
         print("⚠️ Commenti di delimitazione non trovati nel file HTML.")
         nuovo_html = html
 
-    # Aggiorna timestamp nel footer
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
     nuovo_html = re.sub(
         r"Aggiornato automaticamente[^<]*",

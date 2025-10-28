@@ -57,7 +57,6 @@ def genera_html_offerte(offerte):
     return "\n".join(blocchi)
 
 
-
 def aggiorna_index():
     """Aggiorna index.html scaricato con le nuove offerte"""
     if not os.path.exists(LOCAL_INDEX):
@@ -92,7 +91,7 @@ def aggiorna_index():
         print("⚠️ Commenti di delimitazione non trovati nel file HTML.")
         nuovo_html = html
 
-    # Aggiorna timestamp
+    # Aggiorna timestamp nel footer
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
     nuovo_html = re.sub(
         r"Aggiornato automaticamente[^<]*",

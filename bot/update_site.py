@@ -2,9 +2,8 @@ import os
 import json
 from datetime import datetime
 from ftplib import FTP_TLS
-import re
-from io import BytesIO
 
+# === CONFIG ===
 FTP_HOST = os.getenv("FTP_HOST")
 FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
@@ -14,13 +13,14 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 LOCAL_INDEX = os.path.join(BASE_DIR, "index.html")
 LOCAL_JSON = os.path.join(BASE_DIR, "bot", "latest_offers.json")
 
-print(f"📁 INDEX path: {LOCAL_INDEX}")
-print(f"📁 JSON path: {LOCAL_JSON}")
+print(f"📁 Percorso INDEX: {LOCAL_INDEX}")
+print(f"📁 Percorso JSON: {LOCAL_JSON}")
 
 
 def scarica_index_da_aruba():
     print(f"⬇️ Download index.html da {FTP_HOST} ...")
     try:
+        from io import BytesIO
         with FTP_TLS(FTP_HOST) as ftp:
             ftp.login(FTP_USER, FTP_PASS)
             ftp.prot_p()
@@ -65,6 +65,11 @@ def aggiorna_index():
     with open(LOCAL_INDEX, "r", encoding="utf-8") as f:
         html = f.read()
 
+    # Debug: mostra anteprima
+    print("🧩 Preview index (prime 300 linee):")
+    print(html[:500])
+
+    # Carica JSON o crea di test
     if not os.path.exists(LOCAL_JSON):
         print("⚠️ latest_offers.json non trovato. Creo file di test...")
         sample = [
@@ -92,23 +97,31 @@ def aggiorna_index():
 
     offerte_html = genera_html_offerte(offerte[:12])
 
-    if "<!-- OFFERTE START -->" in html and "<!-- OFFERTE END -->" in html:
-        nuovo_html = re.sub(
-            r"<!-- OFFERTE START -->.*?<!-- OFFERTE END -->",
-            f"<!-- OFFERTE START -->\n{offerte_html}\n<!-- OFFERTE END -->",
-            html,
-            flags=re.S
+    # Sostituzione manuale del blocco
+    start = html.find("<!-- OFFERTE START -->")
+    end = html.find("<!-- OFFERTE END -->")
+    if start != -1 and end != -1:
+        nuovo_html = (
+            html[:start]
+            + f"<!-- OFFERTE START -->\n{offerte_html}\n<!-- OFFERTE END -->"
+            + html[end + len("<!-- OFFERTE END -->"):]
         )
+        print("✅ Blocco OFFERTE sostituito manualmente.")
     else:
-        print("⚠️ Mancano i commenti di delimitazione nel file HTML.")
+        print("⚠️ Delimitatori non trovati. Nessuna modifica fatta.")
         nuovo_html = html
 
+    # Aggiorna timestamp
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
-    nuovo_html = re.sub(
-        r"Aggiornato automaticamente[^<]*",
-        f"Aggiornato automaticamente {now}",
-        nuovo_html
-    )
+    if "Aggiornato automaticamente" in nuovo_html:
+        import re
+        nuovo_html = re.sub(
+            r"Aggiornato automaticamente[^<]*",
+            f"Aggiornato automaticamente {now}",
+            nuovo_html
+        )
+    else:
+        nuovo_html += f"\n<p style='text-align:center;color:#999;font-size:12px;'>Aggiornato automaticamente {now}</p>"
 
     with open(LOCAL_INDEX, "w", encoding="utf-8") as f:
         f.write(nuovo_html)
@@ -135,3 +148,5 @@ if __name__ == "__main__":
         if aggiorna_index():
             carica_su_aruba()
             print("✅ Homepage aggiornata su Aruba tramite FTPS.")
+        else:
+            print("⚠️ Nessuna modifica effettuata.")

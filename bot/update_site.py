@@ -4,6 +4,8 @@ from datetime import datetime
 from ftplib import FTP_TLS
 import re
 from io import BytesIO
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOCAL_JSON = os.path.join(BASE_DIR, "latest_offers.json")
 
 # === CONFIG ===
 FTP_HOST = os.getenv("FTP_HOST")

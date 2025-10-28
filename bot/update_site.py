@@ -13,7 +13,7 @@ FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
 FTP_PATH = os.getenv("FTP_PATH", "/www.techandmore.eu/")
 LOCAL_INDEX = "index.html"
-LOCAL_JSON = "bot/latest_offers.json"
+
 
 
 def scarica_index_da_aruba():

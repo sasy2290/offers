@@ -4,16 +4,16 @@ from datetime import datetime
 from ftplib import FTP_TLS
 import re
 from io import BytesIO
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOCAL_JSON = os.path.join(BASE_DIR, "latest_offers.json")
 
 # === CONFIG ===
 FTP_HOST = os.getenv("FTP_HOST")
 FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
 FTP_PATH = os.getenv("FTP_PATH", "/www.techandmore.eu/")
-LOCAL_INDEX = "index.html"
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOCAL_INDEX = os.path.join(BASE_DIR, "../index.html")
+LOCAL_JSON = os.path.join(BASE_DIR, "latest_offers.json")
 
 
 def scarica_index_da_aruba():
@@ -28,6 +28,7 @@ def scarica_index_da_aruba():
             ftp.retrbinary("RETR index.html", bio.write)
             bio.seek(0)
             contenuto = bio.read().decode("utf-8")
+            os.makedirs(os.path.dirname(LOCAL_INDEX), exist_ok=True)
             with open(LOCAL_INDEX, "w", encoding="utf-8") as f:
                 f.write(contenuto)
         print("✅ index.html scaricato correttamente da Aruba.")
@@ -62,38 +63,29 @@ def genera_html_offerte(offerte):
 def aggiorna_index():
     """Aggiorna index.html scaricato con le nuove offerte"""
     if not os.path.exists(LOCAL_INDEX):
-        print("❌ index.html non trovato in locale.")
+        print(f"❌ index.html non trovato in locale: {LOCAL_INDEX}")
         return False
 
     with open(LOCAL_INDEX, "r", encoding="utf-8") as f:
         html = f.read()
 
     # Carica offerte dal JSON
-    if not os.path.exists(LOCAL_JSON):
-        print("⚠️ Nessun file latest_offers.json trovato.")
-        offerte_html = "<p>Nessuna offerta disponibile.</p>"
-    else:
+    json_path = os.path.abspath(LOCAL_JSON)
+    print(f"📂 Lettura JSON da: {json_path}")
+
+    if os.path.exists(json_path):
         try:
-            # Percorso assoluto per sicurezza
-            json_path = os.path.abspath(LOCAL_JSON)
-            print(f"📂 Lettura JSON da: {json_path}")
-            if os.path.exists(json_path):
-    with open(json_path, "r", encoding="utf-8") as f:
-        try:
-            offerte = json.load(f)
+            with open(json_path, "r", encoding="utf-8") as f:
+                offerte = json.load(f)
             print(f"✅ Caricate {len(offerte)} offerte dal JSON.")
         except Exception as e:
             print(f"⚠️ Errore lettura JSON: {e}")
             offerte = []
-else:
-    print("⚠️ File latest_offers.json non trovato.")
-    offerte = []
+    else:
+        print("⚠️ File latest_offers.json non trovato.")
+        offerte = []
 
-offerte_html = genera_html_offerte(offerte[:12])
-
-        except Exception as e:
-            print(f"⚠️ Errore lettura JSON: {e}")
-            offerte_html = "<p>Errore nel caricamento delle offerte.</p>"
+    offerte_html = genera_html_offerte(offerte[:12])
 
     # Sostituisci solo la sezione OFFERTE
     if "<!-- OFFERTE START -->" in html and "<!-- OFFERTE END -->" in html:

@@ -72,9 +72,23 @@ def aggiorna_index():
         offerte_html = "<p>Nessuna offerta disponibile.</p>"
     else:
         try:
-            with open(LOCAL_JSON, "r", encoding="utf-8") as f:
-                offerte = json.load(f)
-            offerte_html = genera_html_offerte(offerte[:12])
+            # Percorso assoluto per sicurezza
+            json_path = os.path.abspath(LOCAL_JSON)
+            print(f"📂 Lettura JSON da: {json_path}")
+            if os.path.exists(json_path):
+    with open(json_path, "r", encoding="utf-8") as f:
+        try:
+            offerte = json.load(f)
+            print(f"✅ Caricate {len(offerte)} offerte dal JSON.")
+        except Exception as e:
+            print(f"⚠️ Errore lettura JSON: {e}")
+            offerte = []
+else:
+    print("⚠️ File latest_offers.json non trovato.")
+    offerte = []
+
+offerte_html = genera_html_offerte(offerte[:12])
+
         except Exception as e:
             print(f"⚠️ Errore lettura JSON: {e}")
             offerte_html = "<p>Errore nel caricamento delle offerte.</p>"

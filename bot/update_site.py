@@ -12,24 +12,29 @@ LOCAL_INDEX = "index.html"
 LOCAL_JSON = "bot/latest_offers.json"
 
 
-def genera_html_offerte(offerte):
-    """Genera il blocco HTML con le offerte."""
-    blocchi = []
-    for o in offerte:
-        titolo = o.get("title", "Offerta Amazon")
-        link = o.get("url", "#")
-        prezzo = o.get("price", "")
-        immagine = o.get("image", "https://www.amazon.it/favicon.ico")
+def aggiorna_html_con_offerte(index_path, offerte_html):
+    """Aggiorna solo la sezione OFFERTE nel file index.html"""
+    with open(index_path, "r", encoding="utf-8") as f:
+        html = f.read()
 
-        blocchi.append(f"""
-        <div class="offerta">
-            <img src="{immagine}" alt="Prodotto Amazon">
-            <p class="offerta-title">{titolo}</p>
-            <p class="offerta-prezzo">{prezzo}</p>
-            <a href="{link}" target="_blank" rel="noopener noreferrer">Vai all'offerta 🔗</a>
-        </div>
-        """)
-    return "\n".join(blocchi)
+    if "<!-- OFFERTE START -->" in html and "<!-- OFFERTE END -->" in html:
+        import re
+        nuovo_html = re.sub(
+            r"<!-- OFFERTE START -->.*?<!-- OFFERTE END -->",
+            f"<!-- OFFERTE START -->\n{offerte_html}\n<!-- OFFERTE END -->",
+            html,
+            flags=re.S
+        )
+    else:
+        print("⚠️ Commenti di delimitazione non trovati, nessuna modifica eseguita.")
+        return False
+
+    with open(index_path, "w", encoding="utf-8") as f:
+        f.write(nuovo_html)
+
+    print("✅ Sezione offerte aggiornata nel file index.html")
+    return True
+
 
 
 def aggiorna_index():

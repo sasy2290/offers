@@ -39,22 +39,36 @@ def scarica_index_da_aruba():
 
 
 def genera_html_offerte(offerte):
-    blocchi = []
+    blocchi = [
+        "<div style='display:flex;flex-wrap:wrap;justify-content:center;gap:20px;padding:20px;'>"
+    ]
+
     for o in offerte:
         titolo = o.get("title", "Offerta Amazon")
         link = o.get("url", "#")
         prezzo = o.get("price", "")
-        img = o.get("image", "https://www.techandmore.eu/logo.png")
+        img = o.get(
+            "image",
+            "https://www.techandmore.eu/logo.png"
+        )
+
         blocco = f"""
-        <div style='text-align:center;margin:20px;'>
-          <a href='{link}' target='_blank' style='text-decoration:none;color:#00bfff;'>
-            <img src='{img}' alt='{titolo}' style='width:200px;border-radius:8px;display:block;margin:auto;'>
-            <p style='font-size:16px;font-weight:bold;'>{titolo}</p>
-            <p style='color:#ff9900;'>{prezzo}</p>
-          </a>
-        </div>"""
+        <div style='background-color:#111;border:1px solid #222;border-radius:12px;
+                    width:220px;padding:10px;text-align:center;box-shadow:0 0 10px #000;'>
+            <a href='{link}' target='_blank' style='text-decoration:none;color:#00bfff;'>
+                <img src='{img}' alt='{titolo}'
+                     style='width:180px;height:180px;object-fit:contain;border-radius:8px;
+                            background-color:#000;margin-bottom:10px;'>
+                <p style='font-size:15px;font-weight:bold;color:#00bfff;margin:6px 0 4px 0;'>{titolo}</p>
+                <p style='color:#ff9900;font-weight:bold;margin:0;'>{prezzo}</p>
+            </a>
+        </div>
+        """
         blocchi.append(blocco)
+
+    blocchi.append("</div>")
     return "\n".join(blocchi)
+
 
 
 def aggiorna_index():

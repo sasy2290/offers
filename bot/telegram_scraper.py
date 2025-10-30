@@ -55,10 +55,7 @@ def load_cache():
 def save_cache(cache):
     os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
-        json.dump(
-            {"ids": cache["ids"][-500:], "texts": cache["texts"][-500:]},
-            f, ensure_ascii=False, indent=2
-        )
+        json.dump({"ids": cache["ids"][-500:], "texts": cache["texts"][-500:]}, f, ensure_ascii=False, indent=2)
 
 
 def normalize_text(text):
@@ -77,7 +74,7 @@ def replace_affiliate_tag(url):
 
 
 def estrai_dati_offerta(text):
-    """Estrae titolo, link e prezzo da un messaggio Telegram."""
+    """Estrae titolo, link, prezzo e immagine da un messaggio Telegram."""
     urls = re.findall(r'https?://\S+', text)
     amazon_links = [replace_affiliate_tag(u) for u in urls if "amazon." in u]
     link = amazon_links[0] if amazon_links else None
@@ -85,14 +82,22 @@ def estrai_dati_offerta(text):
     prezzo = None
     prezzo_match = re.search(r"(\d+[,.]?\d*) ?€", text)
     if prezzo_match:
-        prezzo = prezzo_match.group(1).replace(",", ".") + "€"
+        prezzo = prezzo_match.group(1).replace(",", ".") + " €"
 
-    # Togli link e simboli inutili dal titolo
+    # Titolo pulito
     titolo = re.sub(r'https?://\S+', '', text)
     titolo = re.sub(r'[\*\#\@\|\[\]]', '', titolo).strip()
     titolo = titolo.split("\n")[0][:120] if titolo else "Offerta Amazon"
 
-    return {"titolo": titolo, "link": link, "prezzo": prezzo}
+    # Immagine Amazon generica se non presente
+    immagine = "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg"
+
+    return {
+        "title": titolo,
+        "url": link or "#",
+        "price": prezzo or "",
+        "image": immagine
+    }
 
 
 async def run_scraper():
@@ -125,7 +130,7 @@ async def run_scraper():
 
                 # Estrai dati per JSON
                 offerta = estrai_dati_offerta(text)
-                if offerta["link"]:
+                if offerta["url"]:
                     offerte.append(offerta)
 
                 cache["ids"].append(msg.id)
@@ -160,6 +165,7 @@ def process_message(text):
 
 
 import sys
+
 
 async def main():
     try:

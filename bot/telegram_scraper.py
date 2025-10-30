@@ -65,37 +65,32 @@ def normalize_text(text):
 
 
 def replace_affiliate_tag(url):
+    """Aggiunge o sostituisce il tag affiliato."""
+    if "amazon." not in url:
+        return url
     if "tag=" in url:
         return re.sub(r'tag=[^&]+', f'tag={AFFILIATE_TAG}', url)
-    elif "amazon." in url:
-        sep = "&" if "?" in url else "?"
-        return url + f"{sep}tag={AFFILIATE_TAG}"
-    return url
+    sep = "&" if "?" in url else "?"
+    return url + f"{sep}tag={AFFILIATE_TAG}"
 
 
 def estrai_dati_offerta(text):
-    """Estrae titolo, link, prezzo e immagine da un messaggio Telegram."""
-    urls = re.findall(r'https?://\S+', text)
-    amazon_links = [replace_affiliate_tag(u) for u in urls if "amazon." in u]
-    link = amazon_links[0] if amazon_links else None
+    """Estrae titolo, link, prezzo e immagine dai messaggi Telegram."""
+    urls = re.findall(r'https?://[^\s)]+', text)
+    link = next((replace_affiliate_tag(u) for u in urls if "amazon." in u), None)
 
-    prezzo = None
-    prezzo_match = re.search(r"(\d+[,.]?\d*) ?€", text)
-    if prezzo_match:
-        prezzo = prezzo_match.group(1).replace(",", ".") + " €"
+    prezzo_match = re.search(r"(\d+[,.]?\d*)\s?€", text)
+    prezzo = prezzo_match.group(1).replace(",", ".") + " €" if prezzo_match else ""
 
-    # Titolo pulito
-    titolo = re.sub(r'https?://\S+', '', text)
-    titolo = re.sub(r'[\*\#\@\|\[\]]', '', titolo).strip()
-    titolo = titolo.split("\n")[0][:120] if titolo else "Offerta Amazon"
+    titolo_raw = re.sub(r'https?://[^\s)]+', '', text).strip()
+    titolo = titolo_raw.split("\n")[0][:120] if titolo_raw else "Offerta Amazon"
 
-    # Immagine Amazon generica se non presente
     immagine = "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg"
 
     return {
         "title": titolo,
-        "url": link or "#",
-        "price": prezzo or "",
+        "url": link or "https://www.amazon.it/",
+        "price": prezzo,
         "image": immagine
     }
 
@@ -105,8 +100,8 @@ async def run_scraper():
     await client.start()
 
     cache = load_cache()
-    new_posts = 0
     offerte = []
+    new_posts = 0
 
     print("🔍 Controllo nuovi messaggi Amazon...")
 
@@ -121,17 +116,14 @@ async def run_scraper():
 
                 text = msg.message.strip()
                 normalized = normalize_text(text)
-
                 if msg.id in cache["ids"] or normalized in cache["texts"]:
                     continue
 
                 processed = process_message(text)
                 await client.send_message(TARGET_CHANNEL, processed)
 
-                # Estrai dati per JSON
-                offerta = estrai_dati_offerta(text)
-                if offerta["url"]:
-                    offerte.append(offerta)
+                dati = estrai_dati_offerta(text)
+                offerte.append(dati)
 
                 cache["ids"].append(msg.id)
                 cache["texts"].append(normalized)
@@ -142,7 +134,6 @@ async def run_scraper():
 
     save_cache(cache)
 
-    # Salva JSON con le ultime 20 offerte
     if offerte:
         os.makedirs(os.path.dirname(LATEST_JSON), exist_ok=True)
         with open(LATEST_JSON, "w", encoding="utf-8") as f:
@@ -157,7 +148,7 @@ async def run_scraper():
 
 
 def process_message(text):
-    urls = re.findall(r'https?://\S+', text)
+    urls = re.findall(r'https?://[^\s)]+', text)
     for url in urls:
         if "amazon." in url:
             text = text.replace(url, replace_affiliate_tag(url))

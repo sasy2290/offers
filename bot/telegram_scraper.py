@@ -143,6 +143,8 @@ async def run_scraper():
         print("⚠️ Nessuna offerta valida trovata per il JSON.")
 
     await client.disconnect()
+    print("🧩 Anteprima JSON salvato:")
+    print(json.dumps(offerte[:3], ensure_ascii=False, indent=2))
     print(f"✅ Fine esecuzione. {new_posts} nuove offerte pubblicate.")
     return new_posts
 

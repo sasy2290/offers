@@ -10,7 +10,7 @@ from telethon.errors import AuthKeyDuplicatedError, SessionRevokedError
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("TELETHON_SESSION", "")
-AFFILIATE_TAG = os.getenv("AFFILIATE_TAG", "techandmore05-21")
+AFFILIATE_TAG = os.getenv("AFFILIATE_TAG", "techandmor03f-21")
 
 SOURCE_CHANNELS = [
     "SoloOfferteECodiciSconto",

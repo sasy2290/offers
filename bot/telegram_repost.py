@@ -10,7 +10,7 @@ session_name = "techandmore_session"
 
 SOURCE_CHANNELS = ["@offerteTech", "@scontiPrime, @offertepoint, @DottSconto, @SoloOfferteECodiciSconto, @giga_offertee"]  # canali sorgente
 DEST_CHANNEL = "@amazontechandmore"                 # canale di destinazione
-AFFILIATE_TAG = "techandmore05-21"                  # tag Amazon personale
+AFFILIATE_TAG = "techandmor03f-21"                  # tag Amazon personale
 
 
 def replace_amazon_tag(text: str) -> str:

@@ -6,166 +6,119 @@ from ftplib import FTP_TLS
 FTP_HOST = os.getenv("FTP_HOST")
 FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
-FTP_PATH = os.getenv("FTP_PATH", "/www.techandmore.eu/")
+FTP_PATH = "/www.techandmore.eu/"
 
 LOCAL_INDEX = "index.html"
 LOCAL_JSON = "bot/latest_offers.json"
 
-# === HTML TEMPLATE PER UNA SINGOLA PAGINA DI AGGIORNAMENTO ===
-def render_snapshot_html(offerte, timestamp):
-    blocchi = ""
-    for o in offerte:
-        blocchi += f"""
-        <div class="card">
-            <a href="{o['link']}" target="_blank">
-                <img src="{o['image']}" alt="{o['title']}">
-                <h3>{o['title']}</h3>
-                <p class="price">{o['price']}</p>
-            </a>
-        </div>
-        """
 
-    return f"""
-<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8">
-<title>Offerte {timestamp}</title>
-<link rel="stylesheet" href="../style.css">
-</head>
-<body>
-<h1>Offerte Amazon del {timestamp}</h1>
-<div class="grid">
-{blocchi}
+def load_json():
+    if not os.path.exists(LOCAL_JSON):
+        return []
+    try:
+        with open(LOCAL_JSON, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return []
+
+
+def build_offers_html(offers):
+    html = ""
+    for o in offers:
+        html += f"""
+<div class='offer-card'>
+    <a href='{o["url"]}' target='_blank'>
+        <img src='{o["image"]}' class='offer-img'>
+        <div class='offer-title'>{o["title"]}</div>
+        <div class='offer-price'>{o["price"]}</div>
+    </a>
 </div>
-<p style="text-align:center;margin-top:40px;">
-<a href="index.html">Torna allo storico</a>
-</p>
-</body>
-</html>
 """
+    return html
 
 
-# === HTML PER LISTA COMPLETA DELLO STORICO ===
-def render_storico_html(lista):
-    righe = ""
-    for t in lista:
-        righe += f'<li><a href="{t}.html">{t}</a></li>'
+def update_index(offers):
+    if not os.path.exists(LOCAL_INDEX):
+        print("❌ index.html mancante.")
+        return False
 
-    return f"""
-<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8">
-<title>Storico aggiornamenti</title>
-<link rel="stylesheet" href="../style.css">
-</head>
-<body>
-<h1>Storico Aggiornamenti</h1>
-<ul class="storico">
-{righe}
-</ul>
-<p style="text-align:center;margin-top:40px;">
-<a href="../index.html">Torna alla Home</a>
-</p>
-</body>
-</html>
-"""
+    with open(LOCAL_INDEX, "r", encoding="utf-8") as f:
+        html = f.read()
 
+    offers_block = build_offers_html(offers)
+    now = datetime.now().strftime("%d/%m/%Y %H:%M")
 
-# === GENERAZIONE HTML PER INDEX PRINCIPALE ===
-def render_index_html(offerte, timestamp):
-    blocchi = ""
-    for o in offerte[:30]:
-        blocchi += f"""
-        <div class="card">
-            <a href="{o['link']}" target="_blank">
-                <img src="{o['image']}" alt="{o['title']}">
-                <h3>{o['title']}</h3>
-                <p class="price">{o['price']}</p>
-            </a>
-        </div>
-        """
+    if "<!-- OFFERTE START -->" in html:
+        start = html.split("<!-- OFFERTE START -->")[0]
+        end = html.split("<!-- OFFERTE END -->")[1]
+        new_html = (
+            start
+            + "<!-- OFFERTE START -->\n"
+            + offers_block
+            + "\n<!-- OFFERTE END -->"
+            + end
+        )
+    else:
+        print("⚠️ Delimitatori mancanti.")
+        return False
 
-    return f"""
-<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8">
-<title>TechAndMore — Offerte Amazon</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<h1>TechAndMore</h1>
-<p>🔥 Offerte Amazon aggiornate automaticamente ogni 15 minuti</p>
+    new_html = new_html.replace("Aggiornato automaticamente", f"Aggiornato automaticamente {now}")
 
-<h2>Ultime offerte</h2>
+    with open(LOCAL_INDEX, "w", encoding="utf-8") as f:
+        f.write(new_html)
 
-<div class="grid">
-{blocchi}
-</div>
-
-<p class="update">Aggiornato automaticamente {timestamp}</p>
-
-<p style="text-align:center;margin-top:40px;">
-<a href="updates/index.html">📁 Vai allo storico offerte</a>
-</p>
-
-</body>
-</html>
-"""
+    return True
 
 
-# === UPLOAD FTPS ===
-def ftp_upload(path_remote, local_file):
+def upload_file(filename, remote_path):
     with FTP_TLS(FTP_HOST) as ftp:
         ftp.login(FTP_USER, FTP_PASS)
         ftp.prot_p()
-        ftp.cwd(path_remote)
-        with open(local_file, "rb") as f:
-            ftp.storbinary(f"STOR {os.path.basename(local_file)}", f)
+        ftp.cwd(remote_path)
+        with open(filename, "rb") as f:
+            ftp.storbinary(f"STOR {os.path.basename(filename)}", f)
+    print(f"✅ Caricato: {remote_path}/{os.path.basename(filename)}")
 
 
-# === MAIN UPDATE ===
-def main():
-    if not os.path.exists(LOCAL_JSON):
-        print("❌ JSON non trovato.")
-        return
+def generate_archive(offers):
+    now = datetime.now().strftime("%Y%m%d_%H%M")
+    filename = f"update_{now}.html"
+    local_path = filename
 
-    with open(LOCAL_JSON, "r", encoding="utf-8") as f:
-        offerte = json.load(f)
+    block = build_offers_html(offers)
 
-    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M")
-    nome_snapshot = f"{timestamp}.html"
+    html = f"""
+<!DOCTYPE html>
+<html lang='it'>
+<head>
+<meta charset='UTF-8'>
+<title>Archivio offerte {now}</title>
+<link rel='stylesheet' href='../style.css'>
+</head>
+<body>
+<h2>Archivio aggiornamento {now}</h2>
+{block}
+</body>
+</html>
+"""
 
-    # 1) crea snapshot locale
-    snapshot_html = render_snapshot_html(offerte, timestamp)
-    os.makedirs("updates", exist_ok=True)
-    path_snapshot = f"updates/{nome_snapshot}"
-    with open(path_snapshot, "w", encoding="utf-8") as f:
-        f.write(snapshot_html)
+    with open(local_path, "w", encoding="utf-8") as f:
+        f.write(html)
 
-    # 2) aggiorna storico index
-    storico_dir = "updates/index.html"
-    files = sorted(
-        [f.replace(".html", "") for f in os.listdir("updates") if f.endswith(".html") and f != "index.html"],
-        reverse=True
-    )
-    with open(storico_dir, "w", encoding="utf-8") as f:
-        f.write(render_storico_html(files))
-
-    # 3) aggiorna index principale
-    index_html = render_index_html(offerte, timestamp)
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(index_html)
-
-    # 4) upload su Aruba
-    ftp_upload(FTP_PATH, "index.html")
-    ftp_upload(FTP_PATH + "/updates", path_snapshot)
-    ftp_upload(FTP_PATH + "/updates", "updates/index.html")
-
-    print("✅ Aggiornamento completato.")
+    return local_path, filename
 
 
 if __name__ == "__main__":
-    main()
+    offers = load_json()
+
+    if offers:
+        update_index(offers)
+
+        archive_local, archive_name = generate_archive(offers)
+
+        upload_file(LOCAL_INDEX, FTP_PATH)
+        upload_file(archive_local, FTP_PATH + "updates/")
+
+        print("✅ Archivio salvato.")
+    else:
+        print("⚠️ Nessuna offerta trovata.")

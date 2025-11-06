@@ -76,7 +76,7 @@ def render_storico_html(lista):
 # === GENERAZIONE HTML PER INDEX PRINCIPALE ===
 def render_index_html(offerte, timestamp):
     blocchi = ""
-    for o in offerte[:12]:
+    for o in offerte[:30]:
         blocchi += f"""
         <div class="card">
             <a href="{o['link']}" target="_blank">

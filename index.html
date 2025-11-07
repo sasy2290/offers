@@ -1,29 +1,69 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TechAndMore — Offerte Amazon</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TechAndMore — Offerte Amazon</title>
+  <link rel="stylesheet" href="style.css">
+
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.body.classList.toggle("light", !dark);
+  });
+  </script>
 </head>
+
 <body>
-    <header>
-        <h1>🔥 TechAndMore</h1>
-        <p>Offerte Amazon aggiornate automaticamente ogni 15 minuti</p>
-        <a href="https://t.me/amazontechandmore" target="_blank">🔗 Segui il canale Telegram</a>
-    </header>
 
-    <main>
-        <section id="offers">
-            <h2>Ultime offerte Amazon</h2>
-            <div id="offers-list">
-                <!-- Qui il bot aggiorna le offerte -->
-            </div>
-        </section>
-    </main>
+<div id="loader"><div class="spin"></div></div>
 
-    <footer>
-        <p>© 2025 TechAndMore.eu — aggiornato automaticamente con le offerte Amazon</p>
-    </footer>
+<h1>TechAndMore</h1>
+<p>🔥 Offerte aggiornate automaticamente</p>
+
+<div class="filters">
+  <button onclick="filterOffers('all')">Tutte</button>
+  <button onclick="filterOffers('tech')">Tecnologia</button>
+  <button onclick="filterOffers('home')">Casa</button>
+  <button onclick="filterOffers('fashion')">Moda</button>
+</div>
+
+<h2>Ultime offerte Amazon</h2>
+
+<div id="offers-container" class="offer-grid">
+<!-- OFFERTE START -->
+<!-- Le offerte vengono inserite dallo script update_site.py -->
+<!-- OFFERTE END -->
+</div>
+
+<button id="loadMore">Carica altre offerte</button>
+
+<div class="footer">
+  <p><a href="https://www.techandmore.eu/updates/" target="_blank">📁 Archivio offerte</a></p>
+  <p>aggiornato automaticamente</p>
+  <p><a href="https://t.me/amazontechandmore" target="_blank">Segui su Telegram</a></p>
+</div>
+
+<script>
+window.onload = () => {
+  document.getElementById("loader").style.display = "none";
+};
+
+function filterOffers(cat) {
+  document.querySelectorAll(".offer-card").forEach(card => {
+    if (cat === "all" || card.dataset.cat === cat) card.style.display = "block";
+    else card.style.display = "none";
+  });
+}
+
+let visible = 12;
+document.getElementById("loadMore").onclick = () => {
+  visible += 12;
+  document.querySelectorAll('.offer-card').forEach((c, i) => {
+    if (i < visible) c.style.display = "block";
+  });
+};
+</script>
+
 </body>
 </html>

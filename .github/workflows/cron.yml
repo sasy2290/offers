@@ -2,7 +2,7 @@ name: Aggiorna homepage TechAndMore con offerte Amazon
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # esegue ogni 15 minuti
+    - cron: "*/3 * * * *"   # esegue ogni 3 minuti
   workflow_dispatch:         # consente esecuzione manuale
 
 jobs:

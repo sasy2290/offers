@@ -3,149 +3,174 @@ import json
 from datetime import datetime
 from ftplib import FTP_TLS
 
-# Config
 FTP_HOST = os.getenv("FTP_HOST")
 FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
-
-FTP_BASE = "/www.techandmore.eu"
-FTP_UPDATES = "/www.techandmore.eu/updates"
-
+FTP_PATH = "/www.techandmore.eu/"
 LOCAL_INDEX = "index.html"
 LOCAL_JSON = "bot/latest_offers.json"
+UPDATES_DIR = "updates/"
 
 
-def load_offers():
-    if not os.path.exists(LOCAL_JSON):
-        return []
-    try:
-        with open(LOCAL_JSON, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, list) else []
-    except:
-        return []
+# ---------------- HTML OFFERTE ----------------
 
-
-def render_offer(o):
-    title = o.get("titolo", "Offerta Amazon")
-    link = o.get("link", "#")
-    price = o.get("prezzo", "")
-    img = o.get("image", "")
+def build_offer_html(offer):
+    img = offer.get("image", "")
+    title = offer.get("title", "Offerta")
+    price = offer.get("price", "")
+    link = offer.get("url", "#")
 
     return f"""
-    <div class="offer-card">
-        <a href="{link}" target="_blank">
-            <img src="{img}" alt="img" class="offer-img">
-            <p class="offer-title">{title}</p>
-            <p class="offer-price">{price}</p>
-        </a>
+    <div class="offer-card" data-cat="tech">
+        <img src="{img}" class="offer-img">
+        <div class="offer-title">{title}</div>
+        <div class="offer-price">{price}</div>
+        <a href="{link}" target="_blank" class="btn-buy">Vai all’offerta</a>
     </div>
     """
 
 
-def render_snapshot_html(offers, timestamp):
-    items = "\n".join(render_offer(o) for o in offers)
+# ---------------- SNAPSHOT ----------------
+
+def generate_snapshot(offers, timestamp):
+    html_offers = "\n".join(build_offer_html(o) for o in offers)
+
     return f"""
 <!DOCTYPE html>
-<html lang="it">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Archivio {timestamp}</title>
-<link rel="stylesheet" href="../style.css">
+  <meta charset="UTF-8">
+  <title>Snapshot offerte {timestamp}</title>
+  <link rel="stylesheet" href="../style.css">
 </head>
 <body>
-<h1>Archivio offerte {timestamp}</h1>
+
+<h1>Snapshot offerte — {timestamp}</h1>
+
 <div class="offer-grid">
-{items}
+{html_offers}
 </div>
+
+<div class="footer">
+  <p>Snapshot generato automaticamente</p>
+  <p><a href="../">⬅ Torna alla Home</a></p>
+</div>
+
 </body>
 </html>
 """
 
 
-def render_archive_index(files):
-    links = "\n".join(
-        f'<li><a href="{name}" target="_blank">{name}</a></li>'
-        for name in sorted(files, reverse=True)
+# ---------------- ARCHIVIO ----------------
+
+def update_archive_list():
+    files = sorted(
+        [f for f in os.listdir(UPDATES_DIR) if f.startswith("update_") and f.endswith(".html")],
+        reverse=True
     )
-    return f"""
+
+    items = "\n".join(
+        f'<li><a href="{f}">{f.replace("update_", "").replace(".html", "")}</a></li>'
+        for f in files
+    )
+
+    archive_html = f"""
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<title>Archivio Offerte</title>
+  <meta charset="UTF-8">
+  <title>Archivio offerte — TechAndMore</title>
+  <link rel="stylesheet" href="../style.css">
 </head>
 <body>
-<h1>Archivio aggiornamenti</h1>
+
+<h1>Archivio offerte</h1>
+
 <ul>
-{links}
+{items}
 </ul>
+
+<div class="footer">
+  <p><a href="https://www.techandmore.eu">⬅ Torna alla Home</a></p>
+</div>
+
 </body>
 </html>
 """
 
-
-def upload(path, remote_path):
-    with FTP_TLS(FTP_HOST) as ftp:
-        ftp.login(FTP_USER, FTP_PASS)
-        ftp.prot_p()
-        with open(path, "rb") as f:
-            ftp.storbinary(f"STOR {remote_path}", f)
+    with open(f"{UPDATES_DIR}/index.html", "w", encoding="utf-8") as f:
+        f.write(archive_html)
 
 
-def update_index(offers):
-    if not os.path.exists(LOCAL_INDEX):
-        return
+# ---------------- INDEX.HTML ----------------
 
+def update_index_html(offers):
     with open(LOCAL_INDEX, "r", encoding="utf-8") as f:
         html = f.read()
 
     start = "<!-- OFFERTE START -->"
     end = "<!-- OFFERTE END -->"
 
-    if start not in html or end not in html:
+    block = "\n".join(build_offer_html(o) for o in offers)
+
+    if start in html and end in html:
+        before = html.split(start)[0]
+        after = html.split(end)[1]
+        new_html = before + start + "\n" + block + "\n" + end + after
+    else:
         print("Delimitatori mancanti.")
         return
-
-    grid = "\n".join(render_offer(o) for o in offers)
-
-    new_html = html.split(start)[0] + start + "\n" + grid + "\n" + end + html.split(end)[1]
-
-    timestamp = datetime.now().strftime("%d/%m/%Y %H:%M")
-    new_html = new_html.replace("Aggiornato automaticamente", f"Aggiornato automaticamente {timestamp}")
 
     with open(LOCAL_INDEX, "w", encoding="utf-8") as f:
         f.write(new_html)
 
-    upload(LOCAL_INDEX, f"{FTP_BASE}/index.html")
+    print("✅ Blocco offerte aggiornato.")
 
+
+# ---------------- FTP UPLOAD ----------------
+
+def ftp_upload(local, remote):
+    with FTP_TLS(FTP_HOST) as ftp:
+        ftp.login(FTP_USER, FTP_PASS)
+        ftp.prot_p()
+        ftp.cwd(FTP_PATH)
+        with open(local, "rb") as f:
+            ftp.storbinary(f"STOR {remote}", f)
+        print(f"✅ Caricato: {FTP_PATH}{remote}")
+
+
+# ---------------- MAIN ----------------
 
 def main():
-    offers = load_offers()
+    if not os.path.exists(UPDATES_DIR):
+        os.makedirs(UPDATES_DIR)
+
+    with open(LOCAL_JSON, "r", encoding="utf-8") as f:
+        offers = json.load(f)
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 
-    # Aggiorna homepage
-    update_index(offers)
-
-    # Crea snapshot
-    os.makedirs("updates", exist_ok=True)
-    snap_path = f"updates/update_{timestamp}.html"
-
+    # snapshot
+    snap_path = f"{UPDATES_DIR}/update_{timestamp}.html"
     with open(snap_path, "w", encoding="utf-8") as f:
-        f.write(render_snapshot_html(offers, timestamp))
+        f.write(generate_snapshot(offers, timestamp))
 
-    upload(snap_path, f"{FTP_UPDATES}/update_{timestamp}.html")
+    # aggiorna archivio
+    update_archive_list()
 
-    # Aggiorna lista archivio
-    local_files = [f for f in os.listdir("updates") if f.startswith("update_")]
+    # aggiorna index
+    update_index_html(offers)
 
-    archive_index_path = "updates/index.html"
-    with open(archive_index_path, "w", encoding="utf-8") as f:
-        f.write(render_archive_index(local_files))
+    # upload index
+    ftp_upload("index.html", "index.html")
 
-    upload(archive_index_path, f"{FTP_UPDATES}/index.html")
+    # upload snapshot
+    ftp_upload(snap_path, f"updates/update_{timestamp}.html")
 
-    print("Completo.")
+    # upload archivio
+    ftp_upload(f"{UPDATES_DIR}/index.html", "updates/index.html")
+
+    print("✅ Archivio completo generato.")
 
 
 if __name__ == "__main__":

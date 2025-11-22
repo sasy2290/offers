@@ -1,9 +1,8 @@
 import requests
 import os
 
-PAGE_ID = "805226559349193"   # tua pagina Tech & More
+PAGE_ID = "805226559349193"
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
-
 
 def publish_offer_to_facebook(message, link=None, image_url=None):
     url = f"https://graph.facebook.com/v20.0/{PAGE_ID}/feed"
@@ -22,7 +21,7 @@ def publish_offer_to_facebook(message, link=None, image_url=None):
     r = requests.post(url, data=data)
     try:
         r.raise_for_status()
-    except:
+    except Exception:
         print("Errore Facebook:", r.text)
         return None
 

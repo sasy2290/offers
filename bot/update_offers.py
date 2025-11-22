@@ -115,6 +115,33 @@ def inject_offers_into_html(original_html, offers):
 
     return original_html[:start + len(start_tag)] + offers_html + original_html[end:]
 
+# === FACEBOOK ===
+PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
+PAGE_ID = os.getenv("PAGE_ID")  # ← aggiungi questo secret su GitHub
+
+def publish_to_facebook(message, image_url=None):
+    """Pubblica un post sulla Pagina Facebook."""
+    if not PAGE_ACCESS_TOKEN or not PAGE_ID:
+        print("Facebook non configurato.")
+        return
+
+    fb_url = f"https://graph.facebook.com/{PAGE_ID}/feed"
+    payload = {
+        "message": message,
+        "access_token": PAGE_ACCESS_TOKEN
+    }
+
+    if image_url:
+        fb_url = f"https://graph.facebook.com/{PAGE_ID}/photos"
+        payload["url"] = image_url
+
+    r = requests.post(fb_url, data=payload)
+
+    try:
+        print("Facebook response:", r.json())
+    except:
+        print("Facebook post inviato.")
+
 
 # === Main ===
 def main():
@@ -146,6 +173,13 @@ def main():
         ]
 
         send_telegram_message(msg, buttons)
+
+    # Pubblica anche su Facebook
+fb_message = "🔥 NUOVE OFFERTE AMAZON!\n\n"
+for o in offers[:3]:
+    fb_message += f"{o['title']}\n{o['price']}\n{o['link']}\n\n"
+
+publish_to_facebook(fb_message)
 
     except Exception as e:
         send_telegram_message(f"❌ Errore aggiornamento homepage: {e}")

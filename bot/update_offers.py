@@ -139,10 +139,45 @@ def main():
     ]
     send_telegram_message(msg, buttons)
 
+    try:
+    fb_text = "🔥 Nuove offerte Amazon!\n\n"
+    for o in offers[:3]:
+        fb_text += f"{o['title']}\n💰 {o['price']}\n{ o['link'] }\n\n"
+
+    post_to_facebook(fb_text, offers[0]['img'])
+
+except Exception as e:
+    print("Errore pubblicazione Facebook:", e)
+
     fb_message = "🔥 NUOVE OFFERTE AMAZON!\n\n"
     for o in offers[:3]:
         fb_message += f"{o['title']}\n{o['price']}\n{o['link']}\n\n"
     publish_to_facebook(fb_message)
+
+def post_to_facebook(text, image_url=None):
+    page_id = os.getenv("PAGE_ID")
+    access_token = os.getenv("PAGE_ACCESS_TOKEN")
+
+    if not page_id or not access_token:
+        print("Facebook: PAGE_ID o PAGE_ACCESS_TOKEN mancanti.")
+        return
+
+    if image_url:
+        url = f"https://graph.facebook.com/{page_id}/photos"
+        payload = {
+            "caption": text,
+            "url": image_url,
+            "access_token": access_token
+        }
+    else:
+        url = f"https://graph.facebook.com/{page_id}/feed"
+        payload = {
+            "message": text,
+            "access_token": access_token
+        }
+
+    r = requests.post(url, data=payload)
+    print("Facebook response:", r.text)
 
 if __name__ == "__main__":
     main()

@@ -1,28 +1,36 @@
 import requests
-import os
 
-PAGE_ID = "805226559349193"
-PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
+# ID della pagina Facebook Tech & More
+FACEBOOK_PAGE_ID = "852999117901077"
 
-def publish_offer_to_facebook(message, link=None, image_url=None):
-    url = f"https://graph.facebook.com/v20.0/{PAGE_ID}/feed"
+# Page Access Token generato da /me/accounts (quello lungo EAAT/EAAG...)
+FACEBOOK_PAGE_TOKEN = "INSERISCI_QUI_IL_TUO_PAGE_TOKEN"
 
-    data = {
+GRAPH_API_BASE_URL = "https://graph.facebook.com/v24.0"
+
+
+def publish_facebook_post(message: str) -> dict:
+    """
+    Pubblica un semplice post di testo sulla pagina Facebook.
+
+    :param message: Testo del post (la stessa stringa che mandi a Telegram)
+    :return: Risposta JSON dell'API Facebook
+    """
+    url = f"{GRAPH_API_BASE_URL}/{FACEBOOK_PAGE_ID}/feed"
+    payload = {
         "message": message,
-        "access_token": PAGE_ACCESS_TOKEN
+        "access_token": FACEBOOK_PAGE_TOKEN,
     }
 
-    if link:
-        data["link"] = link
+    response = requests.post(url, data=payload, timeout=20)
 
-    if image_url:
-        data["picture"] = image_url
-
-    r = requests.post(url, data=data)
     try:
-        r.raise_for_status()
+        data = response.json()
     except Exception:
-        print("Errore Facebook:", r.text)
-        return None
+        data = {"error": "Invalid JSON", "text": response.text}
 
-    return r.json()
+    if not response.ok:
+        # Puoi loggare o stampare l'errore
+        print("Facebook API error:", data)
+
+    return data

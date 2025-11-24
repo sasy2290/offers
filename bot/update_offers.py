@@ -204,7 +204,7 @@ def main():
 
     # MESSAGE FOR TELEGRAM
     msg = "<b>🔥 Nuove offerte Amazon!</b>\n\n"
-    for o in offers[:3]:
+    for o in offers[:50]:
         msg += f"🛒 <a href='{o['link']}'>{o['title']}</a>\n💰 {o['price']}\n\n"
     msg += "🌐 <b>Scopri tutte le offerte su TechAndMore.eu</b>"
 
@@ -218,7 +218,7 @@ def main():
     # === FACEBOOK POST ===
     try:
         fb_text = "🔥 NUOVE OFFERTE AMAZON!\n\n"
-        for o in offers[:3]:
+        for o in offers[:50]:
             fb_text += f"{o['title']}\n{o['price']}\n{o['link']}\n\n"
 
         publish_to_facebook(fb_text, offers[0]['img'])

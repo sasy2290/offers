@@ -18,7 +18,7 @@ from telethon.sessions import StringSession
 from telethon.errors import AuthKeyDuplicatedError, SessionRevokedError
 
 # Import sicuro anche in GitHub Actions
-from publisher_facebook import publish_to_facebook
+from bot.publisher_facebook import publish_to_facebook
 
 
 # ======================

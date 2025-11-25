@@ -2,7 +2,7 @@ name: Telegram Scraper
 
 on:
   schedule:
-    - cron: "*/3 * * * *"
+    - cron: "*/45 * * * *"
   workflow_dispatch:
 
 jobs:

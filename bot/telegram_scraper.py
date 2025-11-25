@@ -13,12 +13,9 @@ PARENT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(PARENT_DIR)
 
-# ORA puoi importare publisher_facebook
+# Import corretto
 from publisher_facebook import publish_to_facebook
 
-
-# Import sicuro anche in GitHub Actions
-from bot.publisher_facebook import publish_to_facebook
 
 
 # ======================

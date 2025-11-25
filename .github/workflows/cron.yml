@@ -2,7 +2,7 @@ name: Aggiorna offerte + pubblica su Facebook
 
 on:
   schedule:
-    - cron: "*/3 * * * *"   # ogni 3 minuti
+    - cron: "*/45 * * * *"   # ogni 45 minuti
   workflow_dispatch:        # avvio manuale
 
 jobs:

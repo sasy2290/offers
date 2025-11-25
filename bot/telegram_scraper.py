@@ -3,11 +3,16 @@ import re
 import json
 import asyncio
 import sys
+
+# Fix path for GitHub Actions (import di file locali)
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.errors import AuthKeyDuplicatedError, SessionRevokedError
 
 from publisher_facebook import publish_to_facebook
+
 
 
 # === CONFIG ===

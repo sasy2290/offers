@@ -1,4 +1,4 @@
-name: Telegram Scraper
+name: Telegram Scraper + Facebook Publisher
 
 on:
   schedule:
@@ -10,32 +10,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  run:
+  scraper:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install telethon
-          pip install requests
+          pip install telethon requests
 
-      - name: Run telegram scraper
+      - name: Run Telegram Scraper
         env:
           API_ID: ${{ secrets.API_ID }}
           API_HASH: ${{ secrets.API_HASH }}
           TELETHON_SESSION: ${{ secrets.TELETHON_SESSION }}
           AFFILIATE_TAG: ${{ secrets.AFFILIATE_TAG }}
-          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
-          FACEBOOK_PAGE_TOKEN: ${{ secrets.FACEBOOK_PAGE_TOKEN }}
-        run: python -m bot.telegram_scraper
+        run: python bot/telegram_scraper.py
 
       - name: Update site via FTPS
         env:

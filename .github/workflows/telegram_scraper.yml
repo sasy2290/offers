@@ -31,6 +31,8 @@ jobs:
           API_HASH: ${{ secrets.API_HASH }}
           TELETHON_SESSION: ${{ secrets.TELETHON_SESSION }}
           AFFILIATE_TAG: ${{ secrets.AFFILIATE_TAG }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          FACEBOOK_PAGE_TOKEN: ${{ secrets.FACEBOOK_PAGE_TOKEN }}
         run: python bot/telegram_scraper.py
 
       - name: Update site via FTPS

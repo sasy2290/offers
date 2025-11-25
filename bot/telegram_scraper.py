@@ -7,8 +7,8 @@ import sys
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.errors import AuthKeyDuplicatedError, SessionRevokedError
+from publisher_facebook import publish_to_facebook
 
-from .publisher_facebook import publish_to_facebook
 
 
 # === CONFIG ===

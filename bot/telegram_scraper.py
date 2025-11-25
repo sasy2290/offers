@@ -4,23 +4,18 @@ import json
 import asyncio
 import sys
 
-# ======================================================
-#  FIX IMPORT PER GITHUB ACTIONS (doppia cartella offers/)
-# ======================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PARENT_DIR = os.path.dirname(BASE_DIR)
+from telethon import TelegramClient
+from telethon.sessions import StringSession
+from telethon.errors import AuthKeyDuplicatedError, SessionRevokedError
 
-sys.path.append(BASE_DIR)
-sys.path.append(PARENT_DIR)
+# ============================
+# IMPORT FACEBOOK (CORRETTO)
+# ============================
+from bot.publisher_facebook import publish_to_facebook
 
-# Import corretto
-from publisher_facebook import publish_to_facebook
-
-
-
-# ======================
-# CONFIGURAZIONE SCRAPER
-# ======================
+# ============================
+# CONFIG
+# ============================
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("TELETHON_SESSION", "")
@@ -56,10 +51,9 @@ TARGET_CHANNEL = "@amazontechandmore"
 CACHE_FILE = "bot/posted_cache.json"
 LATEST_JSON = "bot/latest_offers.json"
 
-
-# ======================
-# GESTIONE CACHE
-# ======================
+# ============================
+# CACHE
+# ============================
 def load_cache():
     if not os.path.exists(CACHE_FILE):
         return {"ids": [], "texts": []}
@@ -78,10 +72,9 @@ def save_cache(cache):
             "texts": cache["texts"][-500:]
         }, f, ensure_ascii=False, indent=2)
 
-
-# ======================
-# NORMALIZZAZIONE TESTO
-# ======================
+# ============================
+# UTILITIES
+# ============================
 def normalize_text(text):
     text = re.sub(r"\s+", " ", text.lower().strip())
     text = re.sub(r"http\S+", "", text)
@@ -91,15 +84,17 @@ def normalize_text(text):
 def replace_affiliate_tag(url):
     if "amazon." not in url:
         return url
+
     if "tag=" in url:
         return re.sub(r'tag=[^&]+', f'tag={AFFILIATE_TAG}', url)
+
     sep = "&" if "?" in url else "?"
     return url + f"{sep}tag={AFFILIATE_TAG}"
 
 
 def extract_offer_data(text):
     urls = re.findall(r'https?://[^\s)]+', text)
-    amazon = next((replace_affiliate_tag(u) for u in urls if "amazon." in u), None)
+    amazon_url = next((replace_affiliate_tag(u) for u in urls if "amazon." in u), None)
 
     price_match = re.search(r"(\d+[,.]?\d*)\s?€", text)
     price = price_match.group(1).replace(",", ".") + " €" if price_match else ""
@@ -107,19 +102,16 @@ def extract_offer_data(text):
     title_raw = re.sub(r'https?://[^\s)]+', '', text).strip()
     title = title_raw.split("\n")[0][:120] if title_raw else "Offerta Amazon"
 
-    image = "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg"
+    image_url = "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg"
 
     return {
         "title": title,
-        "url": amazon or "https://www.amazon.it/",
+        "url": amazon_url or "https://www.amazon.it/",
         "price": price,
-        "image": image
+        "image": image_url
     }
 
 
-# ======================
-# PROCESSA E PULISCI TESTO
-# ======================
 def process_message(text):
     urls = re.findall(r'https?://[^\s)]+', text)
     for u in urls:
@@ -128,9 +120,9 @@ def process_message(text):
     return text
 
 
-# ======================
-# LOGICA PRINCIPALE SCRAPER
-# ======================
+# ============================
+# MAIN SCRAPER
+# ============================
 async def run_scraper():
     client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     await client.start()
@@ -162,7 +154,6 @@ async def run_scraper():
                 data = extract_offer_data(text)
                 offers.append(data)
 
-                # Pubblicazione automatica su Facebook
                 fb_text = f"{data['title']}\n{data['price']}\n{data['url']}"
                 publish_to_facebook(fb_text)
 
@@ -179,9 +170,10 @@ async def run_scraper():
         os.makedirs(os.path.dirname(LATEST_JSON), exist_ok=True)
         with open(LATEST_JSON, "w", encoding="utf-8") as f:
             json.dump(offers[:20], f, ensure_ascii=False, indent=2)
-        print(f"💾 Salvate {len(offers[:20])} offerte in JSON")
+
+        print(f"💾 Salvate {len(offers[:20])} offerte nel JSON")
     else:
-        print("⚠️ Nessuna offerta nuova trovata.")
+        print("⚠️ Nessuna offerta trovata.")
 
     await client.disconnect()
 
@@ -191,18 +183,17 @@ async def run_scraper():
     return new_posts
 
 
-# ======================
-# MAIN CON TIMEOUT
-# ======================
+# ============================
+# MAIN WRAPPER
+# ============================
 async def main():
     try:
         new_posts = await asyncio.wait_for(run_scraper(), timeout=120)
-        print(f"📊 Offerte nuove: {new_posts}")
+        print(f"📊 Nuove offerte: {new_posts}")
     except asyncio.TimeoutError:
-        print("⏱️ Timeout raggiunto.")
+        print("⏱️ Timeout scraper.")
     except (AuthKeyDuplicatedError, SessionRevokedError):
-        print("⚠️ Sessione Telethon scaduta.")
-        print("Rigenera TELETHON_SESSION.")
+        print("⚠️ Sessione Telethon invalida. Rigenera TELETHON_SESSION.")
     except Exception as e:
         print(f"❌ Errore imprevisto: {e}")
     finally:

@@ -2,7 +2,7 @@ name: Full Automation (Telegram → Facebook → Sito)
 
 on:
   schedule:
-    - cron: "*/5 * * * *"       # ogni 5 minuti
+    - cron: "*/45 * * * *"       # ogni 45 minuti
   workflow_dispatch:            # avvio manuale
 
 concurrency:

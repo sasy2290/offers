@@ -3,11 +3,11 @@ import re
 import json
 import asyncio
 import sys
-
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.errors import AuthKeyDuplicatedError, SessionRevokedError
-from bot.publisher_facebook import publish_to_facebook
+
+from publisher_facebook import publish_to_facebook
 
 
 # === CONFIG ===
@@ -47,40 +47,28 @@ LATEST_JSON = "bot/latest_offers.json"
 
 
 def load_cache():
-    """Carica la cache dei messaggi già pubblicati (per evitare duplicati)."""
     if not os.path.exists(CACHE_FILE):
         return {"ids": [], "texts": []}
     try:
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except:
         return {"ids": [], "texts": []}
 
 
 def save_cache(cache):
-    """Salva la cache, limitandola agli ultimi 500 elementi."""
     os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "ids": cache["ids"][-500:],
-                "texts": cache["texts"][-500:]
-            },
-            f,
-            ensure_ascii=False,
-            indent=2,
-        )
+        json.dump({"ids": cache["ids"][-500:], "texts": cache["texts"][-500:]}, f, ensure_ascii=False, indent=2)
 
 
-def normalize_text(text: str) -> str:
-    """Normalizza il testo per confronti contro i duplicati."""
+def normalize_text(text):
     text = re.sub(r"\s+", " ", text.lower().strip())
     text = re.sub(r"http\S+", "", text)
     return text
 
 
-def replace_affiliate_tag(url: str) -> str:
-    """Aggiunge o sostituisce il tag affiliato Amazon nel link."""
+def replace_affiliate_tag(url):
     if "amazon." not in url:
         return url
     if "tag=" in url:
@@ -89,125 +77,96 @@ def replace_affiliate_tag(url: str) -> str:
     return url + f"{sep}tag={AFFILIATE_TAG}"
 
 
-def estrai_dati_offerta(text: str) -> dict:
-    """
-    Estrae titolo, link, prezzo e immagine dai messaggi Telegram.
-    Usa un placeholder per l'immagine, migliorabile in seguito.
-    """
+def extract_offer_data(text):
     urls = re.findall(r'https?://[^\s)]+', text)
     link = next((replace_affiliate_tag(u) for u in urls if "amazon." in u), None)
 
-    prezzo_match = re.search(r"(\d+[,.]?\d*)\s?€", text)
-    prezzo = prezzo_match.group(1).replace(",", ".") + " €" if prezzo_match else ""
+    price_match = re.search(r"(\d+[,.]?\d*)\s?€", text)
+    price = price_match.group(1).replace(",", ".") + " €" if price_match else ""
 
-    titolo_raw = re.sub(r'https?://[^\s)]+', '', text).strip()
-    titolo = titolo_raw.split("\n")[0][:120] if titolo_raw else "Offerta Amazon"
-
-    # Placeholder: logo Amazon (puoi sostituire con immagine prodotto se la ricavi)
-    immagine = "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg"
+    title_raw = re.sub(r'https?://[^\s)]+', '', text).strip()
+    title = title_raw.split("\n")[0][:120] if title_raw else "Offerta Amazon"
 
     return {
-        "title": titolo,
+        "title": title,
         "url": link or "https://www.amazon.it/",
-        "price": prezzo,
-        "image": immagine,
+        "price": price,
     }
 
 
-def process_message(text: str) -> str:
-    """Sostituisce i link Amazon con link contenenti il tag affiliato."""
+def process_message(text):
     urls = re.findall(r'https?://[^\s)]+', text)
-    for url in urls:
-        if "amazon." in url:
-            text = text.replace(url, replace_affiliate_tag(url))
+    for u in urls:
+        if "amazon." in u:
+            text = text.replace(u, replace_affiliate_tag(u))
     return text
 
 
 async def run_scraper():
-    """Legge i canali sorgente, inoltra le offerte su Telegram e su Facebook."""
     client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     await client.start()
 
     cache = load_cache()
-    offerte = []
-    new_posts = 0
+    offers = []
+    new_count = 0
 
-    print("🔍 Controllo nuovi messaggi Amazon...")
+    print("🔍 Controllo nuovi messaggi…")
 
     for ch in SOURCE_CHANNELS:
         try:
             entity = await client.get_entity(ch)
-            messages = await client.get_messages(entity, limit=10)
+            messages = await client.get_messages(entity, limit=15)
 
             for msg in messages:
                 if not msg.message or "amazon." not in msg.message.lower():
                     continue
 
-                text = msg.message.strip()
-                normalized = normalize_text(text)
+                raw = msg.message.strip()
+                norm = normalize_text(raw)
 
-                # Salta se già visto
-                if msg.id in cache["ids"] or normalized in cache["texts"]:
+                if msg.id in cache["ids"] or norm in cache["texts"]:
                     continue
 
-                # Pre-elabora il messaggio con i link affiliati
-                processed = process_message(text)
+                processed = process_message(raw)
 
-                # Pubblicazione su Telegram
                 await client.send_message(TARGET_CHANNEL, processed)
 
-                # Estrazione dati per JSON + Facebook
-                dati = estrai_dati_offerta(processed)
-                offerte.append(dati)
+                data = extract_offer_data(raw)
+                offers.append(data)
 
-                # Pubblicazione su Facebook
-                try:
-                    fb_message = f"🔥 {dati['title']}\n💰 {dati['price']}\n👉 {dati['url']}"
-                    publish_to_facebook(fb_message, dati["image"])
-                    print("📘 Pubblicata anche su Facebook:", dati["title"])
-                except Exception as e:
-                    print("❌ Errore pubblicazione Facebook:", e)
-
-                # Aggiorna cache
                 cache["ids"].append(msg.id)
-                cache["texts"].append(normalized)
-                new_posts += 1
+                cache["texts"].append(norm)
+                new_count += 1
+
+                # 🔥 Pubblica su Facebook ogni singola offerta
+                fb_text = f"🔥 OFFERTA AMAZON\n\n{data['title']}\n💰 {data['price']}\n🔗 {data['url']}"
+                publish_to_facebook(fb_text)
 
         except Exception as e:
-            print(f"⚠️ Errore con {ch}: {e}")
+            print(f"⚠️ Errore nel canale {ch}: {e}")
 
-    # Salva cache aggiornata
     save_cache(cache)
 
-    # Salva file JSON con ultime offerte
-    if offerte:
+    if offers:
         os.makedirs(os.path.dirname(LATEST_JSON), exist_ok=True)
         with open(LATEST_JSON, "w", encoding="utf-8") as f:
-            json.dump(offerte[:20], f, ensure_ascii=False, indent=2)
-        print(f"💾 Salvate {len(offerte[:20])} offerte in {LATEST_JSON}")
-    else:
-        print("⚠️ Nessuna offerta valida trovata per il JSON.")
+            json.dump(offers[:20], f, ensure_ascii=False, indent=2)
 
+    print(f"📊 Trovate {new_count} nuove offerte.")
     await client.disconnect()
-    print("🧩 Anteprima JSON salvato:")
-    print(json.dumps(offerte[:3], ensure_ascii=False, indent=2))
-    print(f"✅ Fine esecuzione. {new_posts} nuove offerte pubblicate.")
-    return new_posts
+    return new_count
 
 
 async def main():
     try:
-        new_posts = await asyncio.wait_for(run_scraper(), timeout=120)
-        print(f"📊 Totale offerte nuove trovate: {new_posts}")
+        await asyncio.wait_for(run_scraper(), timeout=120)
     except asyncio.TimeoutError:
-        print("⏱️ Timeout raggiunto, chiusura forzata.")
+        print("⏱ Timeout")
     except (AuthKeyDuplicatedError, SessionRevokedError):
-        print("⚠️ Sessione Telethon invalidata o scaduta.")
-        print("🔁 Rigenera la TELETHON_SESSION localmente con generate_session.py")
+        print("⚠️ Sessione Telethon non valida, rigenera la sessione")
     except Exception as e:
-        print(f"❌ Errore imprevisto: {e}")
+        print("❌ Errore:", e)
     finally:
-        print("🔚 Script completato.")
         sys.exit(0)
 
 

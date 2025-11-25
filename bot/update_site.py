@@ -1,93 +1,103 @@
 import os
 import json
+import ftplib
 from ftplib import FTP_TLS
 
-LATEST_JSON = "bot/latest_offers.json"
+# ======================================
+# Carica variabili ambiente GitHub Actions
+# ======================================
+FTP_HOST = os.getenv("FTP_HOST")
+FTP_USER = os.getenv("FTP_USER")
+FTP_PASS = os.getenv("FTP_PASS")
+FTP_PATH = os.getenv("FTP_PATH", "").strip("/")
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultime Offerte Amazon</title>
-    <style>
-        body {{
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background: #fafafa;
-        }}
-        h1 {{
-            text-align: center;
-        }}
-        .offer {{
-            margin-bottom: 25px;
-            padding: 15px;
-            background: #fff;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-        }}
-        .price {{
-            font-size: 18px;
-            color: #d32f2f;
-            font-weight: bold;
-        }}
-    </style>
-</head>
-<body>
-    <h1>🔥 Ultime Offerte Amazon</h1>
-    {offers}
-</body>
-</html>
-"""
+LOCAL_FILES = [
+    "index.html",
+    "bot/latest_offers.json"
+]
 
-def generate_html(offers):
-    blocks = []
-    for offer in offers:
-        block = f"""
-        <div class="offer">
-            <h2>{offer['title']}</h2>
-            <p class="price">{offer['price']}</p>
-            <p><a href="{offer['url']}" target="_blank">Vai all'offerta</a></p>
-        </div>
-        """
-        blocks.append(block)
-    return HTML_TEMPLATE.format(offers="\n".join(blocks))
+LOCAL_UPDATES_DIR = "bot/updates"
 
-def upload_file_ftp(local_path, remote_path):
-    host = os.getenv("FTP_HOST")
-    user = os.getenv("FTP_USER")
-    password = os.getenv("FTP_PASS")
-    ftp_path = os.getenv("FTP_PATH")
+# ======================================
+# Connessione FTPS
+# ======================================
+def connect_ftps():
+    ftps = FTP_TLS()
+    ftps.connect(FTP_HOST, 21)
+    ftps.login(FTP_USER, FTP_PASS)
 
-    ftps = FTP_TLS(host)
-    ftps.login(user, password)
+    # Modalità sicura TLS
     ftps.prot_p()
-    ftps.cwd(ftp_path)
+    ftps.encoding = "utf-8"
 
-    with open(local_path, "rb") as f:
-        ftps.storbinary(f"STOR {remote_path}", f)
+    print("🔐 Connesso via FTPS")
+    return ftps
 
-    ftps.quit()
-    print(f"Caricato: {remote_path}")
+# ======================================
+# Effettua l'upload di un singolo file
+# ======================================
+def upload_file(ftps, local_path, remote_path):
+    remote_path = remote_path.replace("//", "/")
 
+    try:
+        with open(local_path, "rb") as f:
+            ftps.storbinary(f"STOR {remote_path}", f)
+        print(f"⬆️  Caricato: {remote_path}")
+    except Exception as e:
+        print(f"❌ Errore nel caricare {local_path}: {e}")
+
+# ======================================
+# Crea directory remote se mancanti
+# ======================================
+def ensure_remote_dir(ftps, path):
+    parts = path.split("/")
+    current = ""
+
+    for p in parts:
+        if not p:
+            continue
+        current += f"/{p}"
+        try:
+            ftps.mkd(current)
+            print(f"📁 Creata cartella: {current}")
+        except:
+            pass  # già esiste
+
+# ======================================
+# Upload principale
+# ======================================
 def main():
-    if not os.path.exists(LATEST_JSON):
-        print("Nessun file JSON trovato.")
-        return
+    ftps = connect_ftps()
 
-    with open(LATEST_JSON, "r", encoding="utf-8") as f:
-        offers = json.load(f)
+    # Percorso sul server
+    base_remote = f"/{FTP_PATH}".strip("/")
 
-    html = generate_html(offers[:20])
+    ensure_remote_dir(ftps, base_remote)
 
-    local_file = "index.html"
-    with open(local_file, "w", encoding="utf-8") as f:
-        f.write(html)
+    # -------------------------
+    # UPLOAD FILE PRINCIPALI
+    # -------------------------
+    for file in LOCAL_FILES:
+        if os.path.exists(file):
+            remote_file = f"{base_remote}/{os.path.basename(file)}"
+            upload_file(ftps, file, remote_file)
+        else:
+            print(f"⚠️ File non trovato localmente: {file}")
 
-    upload_file_ftp(local_file, "index.html")
-    print("Sito aggiornato!")
+    # -------------------------
+    # UPLOAD CARTELLA UPDATES
+    # -------------------------
+    if os.path.exists(LOCAL_UPDATES_DIR):
+        for fname in os.listdir(LOCAL_UPDATES_DIR):
+            local_file = os.path.join(LOCAL_UPDATES_DIR, fname)
+            remote_file = f"{base_remote}/updates/{fname}"
+
+            ensure_remote_dir(ftps, f"{base_remote}/updates")
+
+            upload_file(ftps, local_file, remote_file)
+
+    print("✅ Sito aggiornato!")
+    ftps.quit()
 
 if __name__ == "__main__":
     main()
-

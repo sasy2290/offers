@@ -16,7 +16,7 @@ from telethon.errors import AuthKeyDuplicatedError, SessionRevokedError
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("TELETHON_SESSION")
-SCRAPER_KEY = os.getenv("SCRAPER_KEY")  # API per immagine Amazon
+SCRAPER_KEY = os.getenv("SCRAPER_KEY")
 
 AFFILIATE_TAG = os.getenv("AFFILIATE_TAG", "techandmor03f-21")
 FTP_HOST = os.getenv("FTP_HOST")
@@ -105,27 +105,18 @@ def extract_offer(text: str) -> dict:
 def get_amazon_image(url: str):
     if not url or not SCRAPER_KEY:
         return None
-
-    api_url = (
-        f"https://api.scraperapi.com/"
-        f"?api_key={SCRAPER_KEY}"
-        f"&url={url}"
-        f"&autoparse=true"
-    )
-
     try:
-        r = requests.get(api_url, timeout=20)
-        data = r.json()
-
+        api_url = (
+            f"https://api.scraperapi.com/?api_key={SCRAPER_KEY}"
+            f"&url={url}&autoparse=true"
+        )
+        data = requests.get(api_url, timeout=15).json()
         if "primaryImage" in data:
             return data["primaryImage"]
-
         if "images" in data and len(data["images"]) > 0:
             return data["images"][0]
-
-    except Exception as e:
-        print("⚠️ Errore immagine Amazon:", e)
-
+    except:
+        pass
     return None
 
 
@@ -156,8 +147,6 @@ def upload_image_to_ftp(local_path, remote_filename):
         ftps.prot_p()
 
         target = f"/{FTP_PATH}/img".rstrip("/")
-
-        # crea /img se non esiste
         try:
             ftps.cwd(target)
         except:
@@ -172,60 +161,37 @@ def upload_image_to_ftp(local_path, remote_filename):
 
         ftps.quit()
         return f"{SITE_BASE_URL}/img/{remote_filename}"
-
-    except Exception as e:
-        print("⚠️ Errore upload immagine FTP:", e)
+    except:
         return None
 
 
 # ========================
-# FACEBOOK POST
+# FACEBOOK POST (1 sola immagine)
 # ========================
 
 def publish_facebook_multi(offers):
     if not offers:
-        print("ℹ️ Nessuna offerta da pubblicare su Facebook (lista vuota).")
         return
-
-    print(f"📡 Invio a Facebook {len(offers)} offerte (max 10 nel testo)...")
 
     text = "🔥 Ultime offerte Amazon\n\n"
     for o in offers[:10]:
         text += f"• {o['title']} – {o['price']}\n{o['url']}\n\n"
 
-    image_offer = next((o for o in offers if o.get("image_file")), None)
+    first_with_image = next((o for o in offers if o.get("image_file")), None)
 
-    try:
-        if not image_offer:
-            print("ℹ️ Nessuna immagine locale, pubblico SOLO testo su Facebook...")
-            r = requests.post(
-                FB_FEED_URL,
-                data={
-                    "message": text,
-                    "access_token": FB_PAGE_TOKEN,
-                },
-                timeout=30,
-            )
-        else:
-            print(f"🖼 Pubblico su Facebook con immagine: {image_offer['image_file']}")
-            files = {"source": open(image_offer["image_file"], "rb")}
-            data = {
-                "caption": text,
-                "access_token": FB_PAGE_TOKEN,
-            }
-            r = requests.post(
-                FB_PHOTOS_URL,
-                data=data,
-                files=files,
-                timeout=60,
-            )
+    # niente immagine → solo testo
+    if not first_with_image:
+        requests.post(FB_FEED_URL, data={
+            "message": text,
+            "access_token": FB_PAGE_TOKEN,
+        })
+        return
 
-        # Log risposta Facebook
-        print("📨 Risposta Facebook:", r.status_code, r.text)
+    # immagine singola
+    files = {"source": open(first_with_image["image_file"], "rb")}
+    data = {"caption": text, "access_token": FB_PAGE_TOKEN}
 
-    except Exception as e:
-        print("❌ Errore chiamata Facebook:", e)
-
+    requests.post(FB_PHOTOS_URL, data=data, files=files)
 
 
 # ========================
@@ -241,7 +207,7 @@ async def run_scraper():
         try:
             cache = json.load(open(CACHE_FILE, "r"))
         except:
-            cache = {"ids": [], "texts": []}
+            pass
 
     offers = []
     new_posts = 0
@@ -269,30 +235,25 @@ async def run_scraper():
 
                 offer = extract_offer(msg.message)
 
-                # 1️⃣ scarica immagine Telegram
-                local = await download_telegram_photo(
-                    client,
-                    msg,
-                    f"bot/tmp_{msg.id}.jpg",
-                )
+                # 1. Telegram photo
+                local = await download_telegram_photo(client, msg, f"bot/tmp_{msg.id}.jpg")
 
-                # 2️⃣ fallback immagine Amazon
+                # 2. Fallback Amazon image
                 if not local:
                     amazon_img = get_amazon_image(offer["url"])
                     if amazon_img:
                         try:
-                            img_data = requests.get(amazon_img).content
+                            img = requests.get(amazon_img).content
+                            open(f"bot/tmp_{msg.id}.jpg", "wb").write(img)
                             local = f"bot/tmp_{msg.id}.jpg"
-                            open(local, "wb").write(img_data)
                         except:
                             pass
 
-                # 3️⃣ upload via FTP
+                # 3. upload FTP
                 if local:
-                    remote_filename = f"offer_{msg.id}.jpg"
-                    image_url = upload_image_to_ftp(local, remote_filename)
-                    if image_url:
-                        offer["image"] = image_url
+                    remote = upload_image_to_ftp(local, f"offer_{msg.id}.jpg")
+                    if remote:
+                        offer["image"] = remote
                 else:
                     offer["image"] = (
                         "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg"
@@ -306,33 +267,32 @@ async def run_scraper():
                 new_posts += 1
 
         except Exception as e:
-            print("⚠️ Errore:", e)
+            print("Errore su canale:", e)
 
     json.dump(cache, open(CACHE_FILE, "w"), indent=2)
-
-    if offers:
-        json.dump(offers, open(LATEST_JSON, "w"), indent=2)
+    json.dump(offers, open(LATEST_JSON, "w"), indent=2)
 
     await client.disconnect()
     return offers, new_posts
 
 
 # ========================
-# UPLOAD JSON
+# UPLOAD JSON SITO
 # ========================
 
 def upload_site():
-    ftps = FTP_TLS(FTP_HOST)
-    ftps.login(FTP_USER, FTP_PASS)
-    ftps.prot_p()
+    try:
+        ftps = FTP_TLS(FTP_HOST)
+        ftps.login(FTP_USER, FTP_PASS)
+        ftps.prot_p()
+        ftps.cwd(f"/{FTP_PATH}")
 
-    target = f"/{FTP_PATH}".rstrip("/")
-    ftps.cwd(target)
+        with open(LATEST_JSON, "rb") as f:
+            ftps.storbinary("STOR latest_offers.json", f)
 
-    with open(LATEST_JSON, "rb") as f:
-        ftps.storbinary("STOR latest_offers.json", f)
-
-    ftps.quit()
+        ftps.quit()
+    except Exception as e:
+        print("Errore upload sito:", e)
 
 
 # ========================
@@ -341,10 +301,10 @@ def upload_site():
 
 async def main():
     offers, count = await run_scraper()
-    print(f"📊 Nuove offerte trovate dallo scraper: {count}")
-    print(f"📦 Offerte totali passate a Facebook: {len(offers)}")
-
     publish_facebook_multi(offers)
     upload_site()
     print("✅ FULL AUTOMATION COMPLETATA")
 
+
+if __name__ == "__main__":
+    asyncio.run(main())

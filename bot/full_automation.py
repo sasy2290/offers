@@ -184,7 +184,10 @@ def upload_image_to_ftp(local_path, remote_filename):
 
 def publish_facebook_multi(offers):
     if not offers:
+        print("ℹ️ Nessuna offerta da pubblicare su Facebook (lista vuota).")
         return
+
+    print(f"📡 Invio a Facebook {len(offers)} offerte (max 10 nel testo)...")
 
     text = "🔥 Ultime offerte Amazon\n\n"
     for o in offers[:10]:
@@ -192,17 +195,40 @@ def publish_facebook_multi(offers):
 
     image_offer = next((o for o in offers if o.get("image_file")), None)
 
-    if not image_offer:
-        requests.post(FB_FEED_URL, data={
-            "message": text,
-            "access_token": FB_PAGE_TOKEN,
-        })
-        return
+    try:
+        if not image_offer:
+            print("ℹ️ Nessuna immagine locale, pubblico SOLO testo su Facebook...")
+            r = requests.post(
+                FB_FEED_URL,
+                data={
+                    "message": text,
+                    "access_token": FB_PAGE_TOKEN,
+                },
+                timeout=30,
+            )
+        else:
+            print(f"🖼 Pubblico su Facebook con immagine: {image_offer['image_file']}")
+            files = {"source": open(image_offer["image_file"], "rb")}
+            data = {
+                "caption": text,
+                "access_token": FB_PAGE_TOKEN,
+            }
+            r = requests.post(
+                FB_PHOTOS_URL,
+                data=data,
+                files=files,
+                timeout=60,
+            )
 
-    files = {"source": open(image_offer["image_file"], "rb")}
-    data = {"caption": text, "access_token": FB_PAGE_TOKEN}
+        # Log risposta Facebook
+        try:
+            print("📨 Risposta Facebook:", r.status_code, r.text)
+        except Exception as e:
+            print("⚠️ Errore leggendo risposta Facebook:", e)
 
-    requests.post(FB_PHOTOS_URL, data=data, files=files)
+    except Exception as e:
+        print("❌ Errore chiamata Facebook:", e)
+
 
 
 # ========================
@@ -318,9 +344,13 @@ def upload_site():
 
 async def main():
     offers, count = await run_scraper()
+    print(f"📊 Nuove offerte trovate dallo scraper: {count}")
+    print(f"📦 Offerte totali passate a Facebook: {len(offers)}")
+
     publish_facebook_multi(offers)
     upload_site()
     print("✅ FULL AUTOMATION COMPLETATA")
+
 
 
 if __name__ == "__main__":

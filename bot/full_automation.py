@@ -348,5 +348,3 @@ async def main():
     upload_site()
     print("✅ FULL AUTOMATION COMPLETATA")
 
-if __name__ == "__main__":
-    asyncio.run(main())

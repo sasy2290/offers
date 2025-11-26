@@ -170,28 +170,38 @@ def upload_image_to_ftp(local_path, remote_filename):
 # ========================
 
 def publish_facebook_multi(offers):
+    print("📌 FB_DEBUG: Inizio pubblicazione Facebook...")
+
     if not offers:
+        print("📌 FB_DEBUG: Nessuna offerta trovata, salto Facebook.")
         return
 
     text = "🔥 Ultime offerte Amazon\n\n"
     for o in offers[:10]:
         text += f"• {o['title']} – {o['price']}\n{o['url']}\n\n"
 
-    first_with_image = next((o for o in offers if o.get("image_file")), None)
+    image_offer = next((o for o in offers if o.get("image_file")), None)
 
-    # niente immagine → solo testo
-    if not first_with_image:
-        requests.post(FB_FEED_URL, data={
-            "message": text,
-            "access_token": FB_PAGE_TOKEN,
-        })
+    if not image_offer:
+        print("📌 FB_DEBUG: Nessuna immagine trovata, pubblico solo testo.")
+
+        res = requests.post(
+            FB_FEED_URL,
+            data={"message": text, "access_token": FB_PAGE_TOKEN}
+        )
+
+        print("📌 FB_DEBUG: Risposta Facebook:", res.status_code, res.text)
         return
 
-    # immagine singola
-    files = {"source": open(first_with_image["image_file"], "rb")}
+    print("📌 FB_DEBUG: Pubblico immagine + testo...")
+
+    files = {"source": open(image_offer["image_file"], "rb")}
     data = {"caption": text, "access_token": FB_PAGE_TOKEN}
 
-    requests.post(FB_PHOTOS_URL, data=data, files=files)
+    res = requests.post(FB_PHOTOS_URL, data=data, files=files)
+
+    print("📌 FB_DEBUG: Risposta Facebook:", res.status_code, res.text)
+
 
 
 # ========================

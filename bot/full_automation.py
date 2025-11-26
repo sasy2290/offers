@@ -221,10 +221,7 @@ def publish_facebook_multi(offers):
             )
 
         # Log risposta Facebook
-        try:
-            print("📨 Risposta Facebook:", r.status_code, r.text)
-        except Exception as e:
-            print("⚠️ Errore leggendo risposta Facebook:", e)
+        print("📨 Risposta Facebook:", r.status_code, r.text)
 
     except Exception as e:
         print("❌ Errore chiamata Facebook:", e)
@@ -350,8 +347,6 @@ async def main():
     publish_facebook_multi(offers)
     upload_site()
     print("✅ FULL AUTOMATION COMPLETATA")
-
-
 
 if __name__ == "__main__":
     asyncio.run(main())

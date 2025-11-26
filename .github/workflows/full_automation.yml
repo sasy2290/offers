@@ -42,5 +42,6 @@ jobs:
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASS: ${{ secrets.FTP_PASS }}
           FTP_PATH: ${{ secrets.FTP_PATH }}
+          SCRAPER_KEY: ${{ secrets.SCRAPER_KEY }}
 
         run: python bot/full_automation.py

@@ -1,25 +1,20 @@
-name: Full Automation (Telegram → Facebook → Sito)
+name: Full Automation
 
 on:
   schedule:
-    - cron: "*/15 * * * *"       # ogni 15 minuti
-  workflow_dispatch:            # avvio manuale
-
-concurrency:
-  group: full-automation
-  cancel-in-progress: false
+    - cron: "*/45 * * * *"     # ogni 45 minuti (ora UTC)
+  workflow_dispatch:            # puoi avviarlo a mano
 
 jobs:
   run:
     runs-on: ubuntu-latest
 
     steps:
-
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
@@ -28,7 +23,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install telethon requests
 
-      - name: Run Full Automation Script
+      - name: Run Full Automation
         env:
           API_ID: ${{ secrets.API_ID }}
           API_HASH: ${{ secrets.API_HASH }}
@@ -42,6 +37,9 @@ jobs:
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASS: ${{ secrets.FTP_PASS }}
           FTP_PATH: ${{ secrets.FTP_PATH }}
+
+          SITE_BASE_URL: "https://techandmore.eu"
+
           SCRAPER_KEY: ${{ secrets.SCRAPER_KEY }}
 
         run: python bot/full_automation.py

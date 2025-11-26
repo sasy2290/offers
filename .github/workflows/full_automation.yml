@@ -2,8 +2,8 @@ name: Full Automation
 
 on:
   schedule:
-    - cron: "*/15 * * * *"     # ogni 15 minuti (ora UTC)
-  workflow_dispatch:            # puoi avviarlo a mano
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
 
 jobs:
   run:
@@ -23,7 +23,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install telethon requests
 
-      - name: Run Full Automation
+      - name: Run Full Automation (DEBUG)
         env:
           API_ID: ${{ secrets.API_ID }}
           API_HASH: ${{ secrets.API_HASH }}
@@ -39,7 +39,19 @@ jobs:
           FTP_PATH: ${{ secrets.FTP_PATH }}
 
           SITE_BASE_URL: "https://techandmore.eu"
-
           SCRAPER_KEY: ${{ secrets.SCRAPER_KEY }}
 
-        run: python bot/full_automation.py
+        run: |
+          echo "===== DEBUG: LISTA FILE ====="
+          ls -R .
+
+          echo "===== DEBUG: PRIME 60 RIGHE DI bot/full_automation.py ====="
+          head -n 60 bot/full_automation.py || echo "FILE NON TROVATO!"
+
+          echo "===== DEBUG: CONTROLLANDO SE TELETHON SESSION ESISTE ====="
+          if [ -z "$TELETHON_SESSION" ]; then echo "ERRORE: session mancante"; exit 1; fi
+
+          echo "===== DEBUG: AVVIO SCRIPT PYTHON ====="
+          python bot/full_automation.py
+
+          echo "===== DEBUG: SCRIPT TERMINATO ====="

@@ -2,7 +2,7 @@ name: Full Automation
 
 on:
   schedule:
-    - cron: "*/45 * * * *"     # ogni 45 minuti (ora UTC)
+    - cron: "*/15 * * * *"     # ogni 15 minuti (ora UTC)
   workflow_dispatch:            # puoi avviarlo a mano
 
 jobs:

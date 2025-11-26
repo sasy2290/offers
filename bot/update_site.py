@@ -1,49 +1,55 @@
 import os
-from ftplib import FTP_TLS
+import ftplib
 
 FTP_HOST = os.getenv("FTP_HOST")
 FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
-FTP_PATH = os.getenv("FTP_PATH").strip("/")
+FTP_ROOT = "/"  # root del sito
+FTP_UPDATES = "/updates"
 
-LOCAL_INDEX = "index.html"
-LOCAL_JSON = "bot/latest_offers.json"
+LOCAL_JSON = "latest_offers.json"
+LOCAL_UPDATES_DIR = "updates_html"
 
-REMOTE_INDEX = "index.html"
-REMOTE_JSON = "latest_offers.json"
 
-def connect():
-    ftps = FTP_TLS(FTP_HOST)
-    ftps.login(FTP_USER, FTP_PASS)
-    ftps.prot_p()
-    ftps.encoding = "utf-8"
-    print("🔐 Connesso FTPS")
-    return ftps
-
-def upload(ftps, local_path, remote_path):
+def upload_file(ftps, local_path, remote_path):
+    print(f"Uploading: {remote_path}")
     with open(local_path, "rb") as f:
-        ftps.storbinary(f"STOR " + remote_path, f)
-    print(f"⬆️  Caricato: {remote_path}")
+        ftps.storbinary(f"STOR {remote_path}", f)
+    print("OK!")
+
 
 def main():
-    if not os.path.exists(LOCAL_JSON):
-        print("❌ ERRORE: latest_offers.json NON ESISTE in bot/")
-        return
+    print("Connecting to FTP...")
+    ftps = ftplib.FTP_TLS()
+    ftps.connect(FTP_HOST, 21)
+    ftps.login(FTP_USER, FTP_PASS)
+    ftps.prot_p()
 
-    ftps = connect()
-    ftps.cwd("/" + FTP_PATH)
+    print("Connected!")
 
-    # carica JSON
-    upload(ftps, LOCAL_JSON, REMOTE_JSON)
-
-    # carica index.html
-    if os.path.exists(LOCAL_INDEX):
-        upload(ftps, LOCAL_INDEX, REMOTE_INDEX)
+    # Upload SOLO il latest_offers.json nella root
+    if os.path.exists(LOCAL_JSON):
+        upload_file(ftps, LOCAL_JSON, f"{FTP_ROOT}/latest_offers.json")
     else:
-        print("⚠️ index.html non trovato in locale")
+        print("ERROR: latest_offers.json non trovato!")
+
+    # Carica HTML archivio in /updates/
+    if os.path.isdir(LOCAL_UPDATES_DIR):
+
+        # crea cartella updates se non esiste
+        try:
+            ftps.mkd(FTP_UPDATES)
+        except:
+            pass
+
+        for file in os.listdir(LOCAL_UPDATES_DIR):
+            local_file = os.path.join(LOCAL_UPDATES_DIR, file)
+            remote_file = f"{FTP_UPDATES}/{file}"
+            upload_file(ftps, local_file, remote_file)
 
     ftps.quit()
-    print("✅ Sito aggiornato!")
+    print("DONE.")
+
 
 if __name__ == "__main__":
     main()

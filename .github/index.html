@@ -1,0 +1,190 @@
+<<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TechAndMore - Offerte Amazon</title>
+
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            background: #0d1117;
+            color: #ffffff;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 15px 10px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 36px;
+            color: #00a2ff;
+            font-weight: 700;
+        }
+
+        header p {
+            margin: 8px 0 0;
+            font-size: 16px;
+            opacity: 0.85;
+        }
+
+        h2 {
+            text-align: center;
+            margin: 10px 0 20px;
+            font-size: 22px;
+            color: #00a2ff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto 40px;
+            padding: 0 15px 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
+        }
+
+        .card {
+            background: #161b22;
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .card img {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background: #000;
+        }
+
+        .card h3 {
+            margin: 0 0 8px;
+            font-size: 15px;
+            line-height: 1.35;
+        }
+
+        .price {
+            margin-top: auto;
+            font-size: 18px;
+            font-weight: 700;
+            color: #00c4ff;
+        }
+
+        .link {
+            margin-top: 8px;
+        }
+
+        .link a {
+            display: inline-block;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: #00a2ff;
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .link a:hover {
+            background: #0091e6;
+        }
+
+        .status {
+            text-align: center;
+            margin: 20px 0 30px;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>TechAndMore</h1>
+    <p>🔥 Offerte Amazon aggiornate automaticamente</p>
+</header>
+
+<h2>Ultime offerte</h2>
+
+<div class="status" id="status">Caricamento offerte…</div>
+
+<div id="offers" class="container"></div>
+
+<script>
+async function loadOffers() {
+    const statusEl = document.getElementById("status");
+    const container = document.getElementById("offers");
+
+    try {
+        const res = await fetch("latest_offers.json?ts=" + Date.now());
+        if (!res.ok) {
+            throw new Error("HTTP " + res.status);
+        }
+
+        const offers = await res.json();
+        statusEl.textContent = "";
+
+        if (!Array.isArray(offers) || offers.length === 0) {
+            statusEl.textContent = "Nessuna offerta disponibile al momento.";
+            return;
+        }
+
+        container.innerHTML = "";
+
+        offers.forEach(o => {
+            const card = document.createElement("div");
+            card.className = "card";
+
+            const img = document.createElement("img");
+            img.src = o.image || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg";
+            img.alt = "Immagine prodotto Amazon";
+
+            const title = document.createElement("h3");
+            title.textContent = o.title || "Offerta Amazon";
+
+            const price = document.createElement("div");
+            price.className = "price";
+            price.textContent = o.price || "";
+
+            const linkWrap = document.createElement("div");
+            linkWrap.className = "link";
+            const a = document.createElement("a");
+            a.href = o.url || "https://www.amazon.it/";
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+            a.textContent = "Vai all'offerta";
+            linkWrap.appendChild(a);
+
+            card.appendChild(img);
+            card.appendChild(title);
+            card.appendChild(price);
+            card.appendChild(linkWrap);
+
+            container.appendChild(card);
+        });
+    } catch (e) {
+        console.error(e);
+        statusEl.textContent = "Errore nel caricamento delle offerte.";
+    }
+}
+
+loadOffers();
+</script>
+
+</body>
+</html>

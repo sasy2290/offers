@@ -408,6 +408,33 @@ def generate_sitemap(history):
 def upload_site():
     print("🌐 Upload sito via FTPS...")
 
+    # ===== DEBUG: CREA FILE TEST =====
+    try:
+        with open("bot/test_upload.txt", "w", encoding="utf-8") as f:
+            f.write("BOT UPLOAD OK " + datetime.now().isoformat())
+        print("🧪 test_upload.txt generato.")
+    except Exception as e:
+        print("⚠️ Errore generazione test_upload:", e)
+
+    # ===== DEBUG: CARICA FILE TEST =====
+    try:
+        upload_file("bot/test_upload.txt", "test_upload.txt")
+        print("🧪 Caricato: test_upload.txt")
+    except Exception as e:
+        print("⚠️ Errore upload test_upload.txt:", e)
+
+    # ===== UPLOAD SITO =====
+    upload_file("index.html", "index.html")
+    upload_file(LATEST_JSON, "latest_offers.json")
+    upload_file(HISTORY_JSON, "history.json")
+    upload_file(FEED_FILE, "feed.xml")
+    upload_file(SITEMAP_FILE, "sitemap.xml")
+
+    print("✅ Upload sito completato")
+
+def upload_site():
+    print("🌐 Upload sito via FTPS...")
+
     upload_file("index.html", "index.html")
     upload_file(LATEST_JSON, "latest_offers.json")
     upload_file(HISTORY_JSON, "history.json")

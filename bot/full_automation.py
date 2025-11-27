@@ -160,15 +160,39 @@ def open_ftps():
     return ftps
 
 
-def upload_file(local_path: str, remote_name: str):
-    if not os.path.exists(local_path):
-        print(f"⚠️ File non trovato per upload: {local_path}")
-        return
-    ftps = open_ftps()
-    with open(local_path, "rb") as f:
-        ftps.storbinary(f"STOR {remote_name}", f)
-    ftps.quit()
-    print(f"⬆️ Caricato: {remote_name}")
+def upload_site():
+    print("🌐 Upload sito via FTPS...")
+
+    # Pagine statiche HTML / file statici dalla root del repo
+    static_files = [
+        ("index.html", "index.html"),
+        ("storico.html", "storico.html"),
+        ("categorie.html", "categorie.html"),
+        ("offerte-del-giorno.html", "offerte-del-giorno.html"),
+        ("prodotto.html", "prodotto.html"),
+        ("manifest.json", "manifest.json"),
+        ("robots.txt", "robots.txt"),
+    ]
+
+    for local_path, remote_name in static_files:
+        if os.path.exists(local_path):
+            upload_file(local_path, remote_name)
+        else:
+            print(f"ℹ️ File statico non trovato (salto): {local_path}")
+
+    # File generati dallo script (JSON, RSS, sitemap)
+    data_files = [
+        (LATEST_JSON, "latest_offers.json"),
+        (HISTORY_JSON, "history.json"),
+        (FEED_FILE, "feed.xml"),
+        (SITEMAP_FILE, "sitemap.xml"),
+    ]
+
+    for local_path, remote_name in data_files:
+        upload_file(local_path, remote_name)
+
+    print("✅ Upload sito completato")
+
 
 
 def download_history_from_ftp() -> list:

@@ -38,6 +38,8 @@ jobs:
           FTP_PASS: ${{ secrets.FTP_PASS }}
           FTP_PATH: ${{ secrets.FTP_PATH }}
 
+
+
           SITE_BASE_URL: "https://techandmore.eu"
           SCRAPER_KEY: ${{ secrets.SCRAPER_KEY }}
 

@@ -3,7 +3,23 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TechAndMore – Offerte Amazon</title>
+    <title>TechAndMore – Offerte Amazon aggiornate automaticamente</title>
+    <meta name="description"
+          content="TechAndMore raccoglie automaticamente le migliori offerte Amazon dai principali canali Telegram italiani e le mostra in un'unica pagina filtrabile." />
+
+    <!-- Open Graph / Social -->
+    <meta property="og:title" content="TechAndMore – Offerte Amazon" />
+    <meta property="og:description"
+          content="Offerte Amazon aggiornate automaticamente da più canali Telegram. Nessuna registrazione, solo offerte." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://techandmore.eu/" />
+    <meta property="og:image" content="https://techandmore.eu/img/cover-techandmore.jpg" />
+    <meta property="og:site_name" content="TechAndMore" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TechAndMore – Offerte Amazon" />
+    <meta name="twitter:description"
+          content="Le migliori offerte Amazon dai principali canali Telegram, in una sola pagina." />
+    <meta name="twitter:image" content="https://techandmore.eu/img/cover-techandmore.jpg" />
 
     <style>
         :root {
@@ -44,7 +60,8 @@
             top: 0;
             z-index: 40;
             backdrop-filter: blur(18px);
-            background: linear-gradient(
+            background:
+                linear-gradient(
                     120deg,
                     rgba(0, 162, 255, 0.08),
                     rgba(255, 138, 0, 0.05)
@@ -175,9 +192,11 @@
             .nav-links {
                 display: none;
             }
+
             .nav-social {
                 display: none;
             }
+
             .nav-toggle {
                 display: inline-flex;
                 width: 32px;
@@ -353,7 +372,7 @@
             overflow: hidden;
             border: 1px solid rgba(15, 23, 42, 0.9);
             background: radial-gradient(circle at top, rgba(0, 162, 255, 0.12), transparent 40%),
-                        rgba(15, 23, 42, 0.9);
+            rgba(15, 23, 42, 0.9);
             min-height: 180px;
         }
 
@@ -609,11 +628,6 @@
             font-size: 14px;
         }
 
-        .offer-source {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
         .status {
             text-align: center;
             margin: 18px 0 6px;
@@ -677,7 +691,6 @@
     <div class="nav-inner">
         <div class="nav-left">
             <a href="#top" class="logo">
-                <!-- Sostituisci il path dell'immagine con il tuo -->
                 <img src="img/logo-techandmore.png" alt="TechAndMore logo" />
                 <div>
                     <div class="logo-text-main">TechAndMore</div>
@@ -767,7 +780,6 @@
 
                 <div class="hero-media">
                     <div class="hero-media-card">
-                        <!-- Sostituisci con la tua copertina -->
                         <img src="img/cover-techandmore.jpg" alt="TechAndMore" class="hero-cover" />
                         <div class="hero-logo-badge">
                             <img src="img/logo-techandmore.png" alt="TechAndMore" />
@@ -821,7 +833,7 @@
 
         <div class="status" id="status">Caricamento offerte…</div>
 
-        <div class="offers-container" id="offers">
+        <div class="offers-container">
             <div class="offers-grid" id="offersGrid"></div>
             <div class="load-more-wrap">
                 <button class="btn-load-more" id="loadMoreBtn" style="display: none;">
@@ -919,8 +931,7 @@
             url: raw.url || "https://www.amazon.it/",
             price: raw.price || "",
             priceValue,
-            image:
-                raw.image ||
+            image: raw.image ||
                 "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
             category,
             source,
@@ -960,9 +971,7 @@
             filteredOffers.sort((a, b) => (a.priceValue || 1e9) - (b.priceValue || 1e9));
         } else if (sort === "price-desc") {
             filteredOffers.sort((a, b) => (b.priceValue || -1) - (a.priceValue || -1));
-        } else {
-            // newest: keep original order (already from JSON)
-        }
+        } // "newest" mantiene l'ordine del JSON
 
         currentPage = 1;
         renderOffers();
@@ -1056,75 +1065,50 @@
         }
     }
 
-    <script>
-async function loadOffers() {
-    const statusEl = document.getElementById("status");
-    const container = document.getElementById("offers");
-
-    try {
-        const res = await fetch("latest_offers.json?ts=" + Date.now());
-        if (!res.ok) {
-            throw new Error("HTTP " + res.status);
-        }
-
-        const offers = await res.json();
-        statusEl.textContent = "";
-
-        if (!Array.isArray(offers) || offers.length === 0) {
-            statusEl.textContent = "Nessuna offerta disponibile al momento.";
-            return;
-        }
-
-        container.innerHTML = "";
-
-        offers.forEach(o => {
-            const card = document.createElement("div");
-            card.className = "card";
-
-            const img = document.createElement("img");
-            img.src = o.image || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg";
-            img.alt = "Immagine prodotto Amazon";
-
-            const title = document.createElement("h3");
-            title.textContent = o.title || "Offerta Amazon";
-
-            const price = document.createElement("div");
-            price.className = "price";
-            price.textContent = o.price || "";
-
-            const linkWrap = document.createElement("div");
-            linkWrap.className = "link";
-
-            const a = document.createElement("a");
-            a.href = o.url || "https://www.amazon.it/";
-            a.target = "_blank";
-            a.rel = "noopener noreferrer";
-            a.textContent = "Vai all'offerta";
-
-            linkWrap.appendChild(a);
-
-            // link alla scheda prodotto (se id presente)
-            if (o.id) {
-                const details = document.createElement("a");
-                details.href = "prodotto.html?id=" + encodeURIComponent(o.id);
-                details.style.marginLeft = "8px";
-                details.style.fontSize = "12px";
-                details.textContent = "Dettaglio";
-                linkWrap.appendChild(details);
+    async function loadOffers() {
+        try {
+            statusEl.textContent = "Caricamento offerte…";
+            const res = await fetch("latest_offers.json?ts=" + Date.now());
+            if (!res.ok) {
+                throw new Error("HTTP " + res.status);
             }
 
-            card.appendChild(img);
-            card.appendChild(title);
-            card.appendChild(price);
-            card.appendChild(linkWrap);
+            const data = await res.json();
+            if (!Array.isArray(data) || data.length === 0) {
+                statusEl.textContent = "Nessuna offerta disponibile al momento.";
+                return;
+            }
 
-            container.appendChild(card);
-        });
-    } catch (e) {
-        console.error(e);
-        statusEl.textContent = "Errore nel caricamento delle offerte.";
+            allOffers = data.map(normalizeOffer);
+            kpiOffers.textContent = allOffers.length.toString();
+
+            renderCategoryOptions();
+            applyFilters();
+        } catch (e) {
+            console.error(e);
+            statusEl.textContent = "Errore nel caricamento delle offerte.";
+        }
     }
-}
 
-loadOffers();
+    // Event listeners
+    searchInput.addEventListener("input", applyFilters);
+    categorySelect.addEventListener("change", applyFilters);
+    sortSelect.addEventListener("change", applyFilters);
+    quickFilters.addEventListener("click", e => {
+        if (e.target.classList.contains("pill")) {
+            quickFilters.querySelectorAll(".pill").forEach(p =>
+                p.classList.toggle("active", p === e.target)
+            );
+            applyFilters();
+        }
+    });
+    loadMoreBtn.addEventListener("click", () => {
+        currentPage += 1;
+        renderOffers();
+    });
+
+    loadOffers();
 </script>
+
+</body>
+</html>

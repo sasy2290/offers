@@ -24,7 +24,9 @@ AFFILIATE_TAG = os.getenv("AFFILIATE_TAG", "techandmor03f-21")
 FTP_HOST = os.getenv("FTP_HOST")
 FTP_USER = os.getenv("FTP_USER")
 FTP_PASS = os.getenv("FTP_PASS")
-FTP_PATH = (os.getenv("FTP_PATH") or "").strip("/")
+
+# QUI LA FIX FONDAMENTALE:
+FTP_PATH = (os.getenv("FTP_PATH") or "/www.techandmore.eu").rstrip("/")
 
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "https://techandmore.eu")
 
@@ -131,10 +133,6 @@ def get_amazon_image(url: str):
     return None
 
 
-# ========================
-# TELEGRAM MEDIA
-# ========================
-
 async def download_telegram_photo(client, msg, save_path):
     if not msg.photo:
         return None
@@ -154,51 +152,27 @@ def open_ftps():
     ftps = FTP_TLS(FTP_HOST)
     ftps.login(FTP_USER, FTP_PASS)
     ftps.prot_p()
-    base = f"/{FTP_PATH}".rstrip("/")
-    if base:
-        ftps.cwd(base)
+
+    if FTP_PATH:
+        try:
+            ftps.cwd(FTP_PATH)
+        except:
+            pass
     return ftps
 
 
-def upload_site():
-    print("🌐 Upload sito via FTPS...")
-
-    # Pagine statiche HTML / file statici dalla root del repo
-    static_files = [
-        ("index.html", "index.html"),
-        ("storico.html", "storico.html"),
-        ("categorie.html", "categorie.html"),
-        ("offerte-del-giorno.html", "offerte-del-giorno.html"),
-        ("prodotto.html", "prodotto.html"),
-        ("manifest.json", "manifest.json"),
-        ("robots.txt", "robots.txt"),
-    ]
-
-    for local_path, remote_name in static_files:
-        if os.path.exists(local_path):
-            upload_file(local_path, remote_name)
-        else:
-            print(f"ℹ️ File statico non trovato (salto): {local_path}")
-
-    # File generati dallo script (JSON, RSS, sitemap)
-    data_files = [
-        (LATEST_JSON, "latest_offers.json"),
-        (HISTORY_JSON, "history.json"),
-        (FEED_FILE, "feed.xml"),
-        (SITEMAP_FILE, "sitemap.xml"),
-    ]
-
-    for local_path, remote_name in data_files:
-        upload_file(local_path, remote_name)
-
-    print("✅ Upload sito completato")
-
+def upload_file(local_path: str, remote_name: str):
+    if not os.path.exists(local_path):
+        print(f"⚠️ File non trovato per upload: {local_path}")
+        return
+    ftps = open_ftps()
+    with open(local_path, "rb") as f:
+        ftps.storbinary(f"STOR {remote_name}", f)
+    ftps.quit()
+    print(f"⬆️ Caricato: {remote_name}")
 
 
 def download_history_from_ftp() -> list:
-    """
-    Scarica history.json dal server, se esiste.
-    """
     try:
         ftps = open_ftps()
         buf = []
@@ -208,39 +182,32 @@ def download_history_from_ftp() -> list:
 
         try:
             ftps.retrbinary("RETR history.json", _collector)
+        except error_perm:
             ftps.quit()
-            raw = b"".join(buf).decode("utf-8")
-            history = json.loads(raw)
-            print(f"📥 Scaricato history.json dal server ({len(history)} offerte).")
-            return history
-        except error_perm as e:
-            # 550 = file not found
-            print(f"ℹ️ Nessun history.json remoto (o errore FTP): {e}")
-            ftps.quit()
+            print("ℹ️ Nessun history.json remoto.")
             return []
-    except Exception as e:
-        print(f"⚠️ Errore download history.json: {e}")
+
+        ftps.quit()
+        return json.loads(b"".join(buf).decode("utf-8"))
+    except:
         return []
 
-
-# ========================
-# UPLOAD IMMAGINE SU FTP
-# ========================
 
 def upload_image_to_ftp(local_path, remote_filename):
     if not local_path:
         return None
     try:
         ftps = open_ftps()
-        # crea /img se non esiste
+
+        # entra in cartella img
         try:
             ftps.cwd("img")
-        except Exception:
+        except:
             try:
                 ftps.mkd("img")
-            except Exception:
-                pass
-            ftps.cwd("img")
+                ftps.cwd("img")
+            except:
+                return None
 
         with open(local_path, "rb") as f:
             ftps.storbinary(f"STOR {remote_filename}", f)
@@ -259,44 +226,22 @@ def upload_image_to_ftp(local_path, remote_filename):
 
 def publish_facebook_multi(offers):
     if not offers:
-        print("ℹ️ Nessuna offerta per Facebook.")
         return
 
     text = "🔥 Ultime offerte Amazon\n\n"
     for o in offers[:10]:
         text += f"• {o['title']} – {o['price']}\n{o['url']}\n\n"
 
-    # prima offerta con immagine locale per /photos
-    image_offer = next((o for o in offers if o.get("image_file")), None)
+    img = next((o.get("image_file") for o in offers if o.get("image_file")), None)
 
-    if not image_offer:
-        print("📌 FB_DEBUG: Nessuna immagine locale, pubblico post testuale.")
-        r = requests.post(
-            FB_FEED_URL,
-            data={
-                "message": text,
-                "access_token": FB_PAGE_TOKEN,
-            },
-            timeout=40,
-        )
+    if img:
+        files = {"source": open(img, "rb")}
+        data = {"caption": text, "access_token": FB_PAGE_TOKEN}
+        r = requests.post(FB_PHOTOS_URL, data=data, files=files)
     else:
-        print("📌 FB_DEBUG: Pubblico post con immagine.")
-        files = {"source": open(image_offer["image_file"], "rb")}
-        data = {
-            "caption": text,
-            "access_token": FB_PAGE_TOKEN,
-        }
-        r = requests.post(
-            FB_PHOTOS_URL,
-            data=data,
-            files=files,
-            timeout=60,
-        )
+        r = requests.post(FB_FEED_URL, data={"message": text, "access_token": FB_PAGE_TOKEN})
 
-    try:
-        print("📌 FB_DEBUG: Risposta Facebook:", r.status_code, r.text)
-    except Exception:
-        pass
+    print("📌 FB_DEBUG:", r.status_code, r.text)
 
 
 # ========================
@@ -307,18 +252,14 @@ async def run_scraper():
     client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     await client.start()
 
-    # cache locale
     cache = {"ids": [], "texts": []}
     if os.path.exists(CACHE_FILE):
         try:
-            with open(CACHE_FILE, "r", encoding="utf-8") as f:
-                cache = json.load(f)
-        except Exception:
-            cache = {"ids": [], "texts": []}
+            cache = json.load(open(CACHE_FILE, "r", encoding="utf-8"))
+        except:
+            pass
 
     offers = []
-    new_posts = 0
-
     print("🔍 Avvio scraper Telegram...")
 
     for ch in SOURCE_CHANNELS:
@@ -344,153 +285,89 @@ async def run_scraper():
 
                 offer = extract_offer(msg.message)
 
-                # id univoco: chat_id + msg_id
                 created_at = datetime.now(timezone.utc).isoformat()
                 offer["id"] = f"{entity.id}_{msg.id}"
                 offer["created_at"] = created_at
 
-                # 1) immagine Telegram
                 local = await download_telegram_photo(
                     client,
                     msg,
                     f"bot/tmp_{entity.id}_{msg.id}.jpg",
                 )
 
-                # 2) fallback immagine Amazon
                 if not local:
                     amazon_img = get_amazon_image(offer["url"])
                     if amazon_img:
                         try:
-                            img_data = requests.get(amazon_img, timeout=30).content
+                            img_data = requests.get(amazon_img, timeout=20).content
                             local = f"bot/tmp_{entity.id}_{msg.id}.jpg"
-                            with open(local, "wb") as f:
-                                f.write(img_data)
-                        except Exception as e:
-                            print("⚠️ Errore download immagine Amazon:", e)
+                            open(local, "wb").write(img_data)
+                        except:
+                            local = None
 
-                # 3) upload FTP
                 if local:
                     remote_filename = f"offer_{entity.id}_{msg.id}.jpg"
                     image_url = upload_image_to_ftp(local, remote_filename)
-                    if image_url:
-                        offer["image"] = image_url
+                    offer["image"] = image_url or None
                 else:
-                    offer["image"] = (
-                        "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg"
-                    )
+                    offer["image"] = None
 
                 offer["image_file"] = local
                 offers.append(offer)
 
                 cache["ids"].append(msg.id)
                 cache["texts"].append(norm)
-                new_posts += 1
 
         except Exception as e:
-            print(f"⚠️ Errore sul canale {ch}: {e}")
+            print("⚠️ Errore su canale:", ch, e)
 
-    # salva cache
-    try:
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(cache, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"⚠️ Errore salvataggio cache: {e}")
-
-    # salva JSON offerte (solo ultime)
-    if offers:
-        try:
-            with open(LATEST_JSON, "w", encoding="utf-8") as f:
-                json.dump(offers, f, ensure_ascii=False, indent=2)
-            print(f"💾 Salvate {len(offers)} offerte in {LATEST_JSON}")
-        except Exception as e:
-            print(f"⚠️ Errore salvataggio JSON offerte: {e}")
-    else:
-        print("ℹ️ Nessuna nuova offerta trovata.")
+    json.dump(cache, open(CACHE_FILE, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+    json.dump(offers, open(LATEST_JSON, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 
     await client.disconnect()
-    return offers, new_posts
+    return offers
 
 
 # ========================
 # STORICO / RSS / SITEMAP
 # ========================
 
-def update_history(all_new_offers):
-    # scarico storico esistente dal server
+def update_history(new):
     history = download_history_from_ftp()
 
-    if not isinstance(history, list):
-        history = []
-
-    existing_ids = {o.get("id") for o in history if isinstance(o, dict)}
-
-    # inserisco nuove offerte in testa
+    ids = {o["id"] for o in history}
     added = 0
-    for off in all_new_offers:
-        oid = off.get("id")
-        if not oid or oid in existing_ids:
-            continue
-        history.insert(0, off)
-        existing_ids.add(oid)
-        added += 1
 
-    # opzionale: limito storico a N elementi (es. 5000)
-    MAX_ITEMS = 5000
-    if len(history) > MAX_ITEMS:
-        history = history[:MAX_ITEMS]
+    for o in new:
+        if o["id"] not in ids:
+            history.insert(0, o)
+            ids.add(o["id"])
+            added += 1
 
-    with open(HISTORY_JSON, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
-
+    json.dump(history, open(HISTORY_JSON, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
     print(f"📚 Storico aggiornato: {len(history)} offerte totali (+{added} nuove).")
     return history
 
 
-def _xml_escape(s: str) -> str:
-    return (
-        s.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
-
-
 def generate_rss(history):
-    # prendo le ultime 20 offerte
-    items = history[:20]
-
     parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
-        '<rss version="2.0">',
-        "<channel>",
-        f"<title>{_xml_escape('TechAndMore - Ultime offerte Amazon')}</title>",
+        '<rss version="2.0"><channel>',
+        "<title>TechAndMore - Ultime offerte Amazon</title>",
         f"<link>{SITE_BASE_URL}</link>",
-        "<description>Feed RSS con le ultime offerte pubblicate su TechAndMore.</description>",
-        "<language>it-it</language>",
     ]
 
-    for o in items:
-        title = _xml_escape(o.get("title", "Offerta Amazon"))
-        link = o.get("url") or SITE_BASE_URL
-        price = o.get("price", "")
-        created = o.get("created_at")
-        pubdate = created or datetime.now(timezone.utc).isoformat()
-        guid = f"{SITE_BASE_URL}/prodotto.html?id={o.get('id', '')}"
-
+    for o in history[:20]:
         parts.append("<item>")
-        parts.append(f"<title>{title}</title>")
-        parts.append(f"<link>{_xml_escape(link)}</link>")
-        parts.append(f"<guid>{_xml_escape(guid)}</guid>")
-        parts.append(f"<description>{_xml_escape(price)}</description>")
-        parts.append(f"<pubDate>{_xml_escape(pubdate)}</pubDate>")
+        parts.append(f"<title>{o['title']}</title>")
+        parts.append(f"<link>{o['url']}</link>")
+        parts.append(f"<guid>{SITE_BASE_URL}/prodotto.html?id={o['id']}</guid>")
+        parts.append(f"<pubDate>{o['created_at']}</pubDate>")
         parts.append("</item>")
 
-    parts.append("</channel>")
-    parts.append("</rss>")
+    parts.append("</channel></rss>")
 
-    with open(FEED_FILE, "w", encoding="utf-8") as f:
-        f.write("\n".join(parts))
-
-    print("📰 RSS feed generato.")
+    open(FEED_FILE, "w", encoding="utf-8").write("\n".join(parts))
 
 
 def generate_sitemap(history):
@@ -501,14 +378,10 @@ def generate_sitemap(history):
         f"{SITE_BASE_URL}/offerte-del-giorno.html",
     ]
 
-    # tutte le schede prodotto
     for o in history:
-        oid = o.get("id")
-        if not oid:
-            continue
-        urls.append(f"{SITE_BASE_URL}/prodotto.html?id={oid}")
+        urls.append(f"{SITE_BASE_URL}/prodotto.html?id={o['id']}")
 
-    now = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now(timezone.utc).date().isoformat()
 
     parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -517,18 +390,15 @@ def generate_sitemap(history):
 
     for u in urls:
         parts.append("<url>")
-        parts.append(f"<loc>{_xml_escape(u)}</loc>")
-        parts.append(f"<lastmod>{now}</lastmod>")
+        parts.append(f"<loc>{u}</loc>")
+        parts.append(f"<lastmod>{today}</lastmod>")
         parts.append("<changefreq>hourly</changefreq>")
         parts.append("<priority>0.8</priority>")
         parts.append("</url>")
 
     parts.append("</urlset>")
 
-    with open(SITEMAP_FILE, "w", encoding="utf-8") as f:
-        f.write("\n".join(parts))
-
-    print("🗺️ Sitemap generata.")
+    open(SITEMAP_FILE, "w", encoding="utf-8").write("\n".join(parts))
 
 
 # ========================
@@ -538,14 +408,13 @@ def generate_sitemap(history):
 def upload_site():
     print("🌐 Upload sito via FTPS...")
 
-    # index + latest_offers + history + feed + sitemap
     upload_file("index.html", "index.html")
     upload_file(LATEST_JSON, "latest_offers.json")
     upload_file(HISTORY_JSON, "history.json")
     upload_file(FEED_FILE, "feed.xml")
     upload_file(SITEMAP_FILE, "sitemap.xml")
 
-    print("✅ Upload sito completato")
+    print("🚀 Upload sito completato.")
 
 
 # ========================
@@ -554,32 +423,16 @@ def upload_site():
 
 async def main():
     try:
-        offers, count = await run_scraper()
-        print(f"📊 Nuove offerte trovate: {count}")
-
-        # aggiorno storico + RSS + sitemap
-        history = update_history(offers if offers else [])
+        offers = await run_scraper()
+        history = update_history(offers)
         generate_rss(history)
         generate_sitemap(history)
-
-        # Facebook
-        try:
-            publish_facebook_multi(offers)
-        except Exception as e:
-            print(f"⚠️ Errore pubblicazione Facebook: {e}")
-
-        # Upload sito
-        try:
-            upload_site()
-        except Exception as e:
-            print(f"⚠️ Errore upload sito: {e}")
-
+        publish_facebook_multi(offers)
+        upload_site()
         print("✅ FULL AUTOMATION COMPLETATA")
 
-    except (AuthKeyDuplicatedError, SessionRevokedError):
-        print("❌ Errore di sessione Telethon: rigenera TELETHON_SESSION")
     except Exception as e:
-        print(f"❌ Errore generale: {e}")
+        print("❌ Errore generale:", e)
 
 
 if __name__ == "__main__":

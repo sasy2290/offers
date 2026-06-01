@@ -17,6 +17,9 @@ from telethon.errors import AuthKeyDuplicatedError, SessionRevokedError
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 SESSION_STRING = os.getenv("TELETHON_SESSION")
+print("SESSION PRESENTE:", SESSION_STRING is not None)
+if SESSION_STRING:
+print("LUNGHEZZA SESSIONE:", len(SESSION_STRING))
 SCRAPER_KEY = os.getenv("SCRAPER_KEY")
 
 AFFILIATE_TAG = os.getenv("AFFILIATE_TAG", "techandmor03f-21")
